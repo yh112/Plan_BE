@@ -1,5 +1,6 @@
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
+const path = require("path");
 
 const options = {
   definition: {
@@ -15,24 +16,16 @@ const options = {
     },
     servers: [
       {
-        url: "http://localhost:3000/",
+        url: "http://localhost:4000",
         description: "Local Development",
       },
-      {
-        url: "http://test.co.kr/",
-        description: "Test Server",
-      },
-      {
-        url: "http://real.co.kr/",
-        description: "Real Server",
-      },
     ],
-    // components: {},
   },
-  apis: ["./routes/api/*.js", "./swagger/*"],
+  apis: [path.join(__dirname, "../routes/*.js")],
 };
-
 const specs = swaggerJsdoc(options);
+
+console.log(__dirname)
 
 module.exports = {
   swaggerUi,
