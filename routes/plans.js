@@ -4,7 +4,7 @@ const db = require("../db");
 
 /**
  * @swagger
- * /api/plan/plan_list:
+ * /api/plans:
  *   get:
  *     summary: "계획표 목록 조회"
  *     description: "저장된 모든 계획표 목록을 조회합니다."
@@ -17,7 +17,7 @@ const db = require("../db");
  *             schema:
  *               type: object
  *               properties:
- *                 plans_list:
+ *                 plan_list:
  *                   type: array
  *                   items:
  *                     type: object
@@ -41,31 +41,23 @@ const db = require("../db");
  *                         example: "2025-03-06T12:00:00Z"
  *       "500":
  *         description: "서버 오류"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "서버 오류"
  */
 
 // 계획표 조회 API
-router.get("/plan_list", async (req, res) => {
+router.get("/", async (req, res) => {
     try {
-        const [plan_list] = await db.query("SELECT * FROM plans");
+        const [plan_list] = await db.query("SELECT * FROM plan");
         res.status(200).json({ plan_list });
         console.log(plan_list);
     } catch (error) {
         console.error("폴더 목록 조회 오류:", error);
-        res.status(500).json({ message: "서버 오류" });
+        res.status(500);
     }
 });
 
 /**
  * @swagger
- * /api/plan/add_plan:
+ * /api/plans:
  *   post:
  *     summary: "계획표 추가"
  *     description: "새로운 계획표를 추가합니다."
@@ -116,7 +108,7 @@ router.get("/plan_list", async (req, res) => {
  */
 
 // 계획표 추가 API
-router.post("/add_plan", async (req, res) => {
+router.post("/", async (req, res) => {
     try {
         const { fid, uid, title } = req.body;
 
@@ -127,7 +119,7 @@ router.post("/add_plan", async (req, res) => {
         }
 
         const [result] = await db.query(
-            "INSERT INTO plans (fid, uid, created_at) VALUES (?, ?, ?)",
+            "INSERT INTO plan (fid, uid, created_at) VALUES (?, ?, ?)",
             [folder_name, uid, new Date()]
         );
 
@@ -137,5 +129,7 @@ router.post("/add_plan", async (req, res) => {
         res.status(500);
     }
 });
+
+// 계획표 프로젝트 조회 API
 
 module.exports = router;

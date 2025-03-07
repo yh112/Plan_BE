@@ -1,16 +1,18 @@
+require("dotenv").config();
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const bcrypt = require("bcryptjs");
-const jwt = require('jsonwebtoken');
+const TokenUtils = require("../utils/tokenUtils");
+const jwt = require("jsonwebtoken");
 
 /**
  * @swagger
- * /api/user/signup:
+ * /api/auth/signup:
  *   post:
  *     summary: "회원가입"
  *     description: "새로운 사용자를 등록합니다."
- *     tags: [Users]
+ *     tags: [Auth]
  *     requestBody:
  *       description: "사용자의 회원가입 정보를 입력받습니다."
  *       required: true
@@ -50,50 +52,45 @@ const jwt = require('jsonwebtoken');
  *                   example: "이미 존재하는 아이디입니다."
  *       "500":
  *         description: "서버 오류"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "서버 오류"
  */
 
 // Signup API
 router.post("/signup", async (req, res) => {
-    try {
-        const { user_id, password } = req.body;
+  try {
+    const { user_id, password } = req.body;
 
-        // 아이디 중복 확인
-        const [existingUser] = await db.query("SELECT * FROM users WHERE user_id = ?", [user_id]);
-        if (existingUser.length > 0) {
-            return res.status(400).json({ message: "이미 존재하는 아이디입니다." });
-        }
-
-        // 비밀번호 해싱
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // DB에 저장
-        await db.query(
-            "INSERT INTO users (user_id, password, created_at) VALUES (?, ?, ?)", 
-            [user_id, hashedPassword, new Date()]
-        );
-
-        res.status(201).json({ message: '회원가입 완료' });
-    } catch (error) {
-        console.error("회원가입 오류:", error);
-        res.status(500);
+    // 아이디 중복 확인
+    const [existingUser] = await db.query(
+      "SELECT * FROM user WHERE user_id = ?",
+      [user_id]
+    );
+    if (existingUser.length > 0) {
+      return res.status(400).json({ message: "이미 존재하는 아이디입니다." });
     }
+
+    // 비밀번호 해싱
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // DB에 저장
+    await db.query("INSERT INTO user (user_id, password) VALUES (?, ?, ?)", [
+      user_id,
+      hashedPassword,
+    ]);
+
+    res.status(201).json({ message: "회원가입 완료" });
+  } catch (error) {
+    console.error("회원가입 오류:", error);
+    res.status(500);
+  }
 });
 
 /**
  * @swagger
- * /api/user/login:
+ * /api/auth/login:
  *   post:
  *     summary: "로그인"
  *     description: "사용자가 아이디와 비밀번호로 로그인합니다."
- *     tags: [Users]
+ *     tags: [Auth]
  *     requestBody:
  *       description: "사용자의 로그인 정보를 입력받습니다."
  *       required: true
@@ -137,50 +134,67 @@ router.post("/signup", async (req, res) => {
  *                   example: "존재하지 않는 아이디입니다."
  *       "500":
  *         description: "서버 오류"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "서버 오류"
  */
 
 // Login API
 router.post("/login", async (req, res) => {
-    try {
-        const { user_id, password } = req.body;
+  try {
+    const { user_id, password } = req.body;
 
-        // 사용자 정보 조회
-        const [user] = await db.query("SELECT * FROM users WHERE user_id = ?", [user_id]);
-        if (user.length === 0) {
-            return res.status(400).json({ message: "존재하지 않는 아이디입니다." });
-        }
+    console.log(`Login: ${user_id}`);
 
-        // 비밀번호 검증
-        const isMatch = await bcrypt.compare(password, user[0].password);
-        if (!isMatch) {
-            return res.status(400).json({ message: "비밀번호가 일치하지 않습니다." });
-        }
-
-        // JWT 토큰 발급
-        const token = jwt.sign({ id: user[0].id }, "SECRET_KEY", { expiresIn: "1h" });
-
-        res.status(200).json({ message: "로그인 성공", token });
-    } catch (error) {
-        console.error("로그인 오류:", error);
-        res.status(500);
+    // 사용자 정보 조회
+    const [auth] = await db.query("SELECT * FROM user WHERE user_id = ?", [
+      user_id,
+    ]);
+    if (auth.length === 0) {
+      return res.status(400).json({ message: "존재하지 않는 아이디입니다." });
     }
+
+    // 비밀번호 검증
+    const isMatch = await bcrypt.compare(password, auth[0].password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "비밀번호가 일치하지 않습니다." });
+    }
+
+    // JWT 토큰 발급
+    const accessToken = TokenUtils.makeAccessToken({id: auth[0].id});
+    const refreshToken = TokenUtils.makeRefreshToken({id: auth[0].id});
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true, // HTTPS 환경에서만 사용 (개발 중에는 false)
+      sameSite: "Strict",
+      maxAge: 10 * 60 * 1000, // 10분
+    });
+
+    res.status(200).json({ accessToken }); // Access Token은 JSON으로 응답
+  } catch (error) {
+    console.error("로그인 오류:", error);
+    res.status(500);
+  }
 });
+
+// 토큰 갱신 API
+router.post("/refresh", (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) return res.status(403).json({ message: "Refresh token이 없습니다." });
+
+  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: "Refresh token이 유효하지 않습니다." });
+
+    const newAccessToken = generateAccessToken({ id: user.id });
+    res.status(200).json({ accessToken: newAccessToken });
+  });
+})
 
 /**
  * @swagger
- * /api/user/logout:
+ * /api/auth/logout:
  *   post:
  *     summary: "로그아웃"
  *     description: "사용자를 로그아웃합니다."
- *     tags: [Users]
+ *     tags: [Auth]
  *     responses:
  *       "200":
  *         description: "로그아웃 성공"
@@ -194,23 +208,16 @@ router.post("/login", async (req, res) => {
  *                   example: "로그아웃 완료"
  *       "500":
  *         description: "서버 오류"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "서버 오류"
  */
 
 // Logout API
 router.post("/logout", (req, res) => {
-    try {
-        res.status(200).json({ message: "로그아웃 완료"});
-    } catch (error) {
-        console.error("로그아웃 오류:", error);
-        res.status(500).json({message: "서버 오류"});
-    }
-})
+  try {
+    res.clearCookie("refreshToken");
+    res.status(200).json({ message: "로그아웃 완료" });
+  } catch (error) {
+    console.error("로그아웃 오류:", error);
+    res.status(500);
+  }
+});
 module.exports = router;

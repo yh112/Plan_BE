@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const userRouter = require("./user");
-const folderRouter = require("./folder");
-const planRouter = require("./plan");
+const authRouter = require("./auth");
+const folderRouter = require("./folders");
+const planRouter = require("./plans");
 /**
  * @swagger
  * tags:
- *   name: Users
+ *   name: Auth
  *   description: 회원 가입, 로그인 처리
  */
 
@@ -14,18 +14,18 @@ const planRouter = require("./plan");
  * @swagger
  * tags:
  *   name: Folders
- *   description: 폴더 추가 조회
+ *   description: 폴더 생성, 조회
  */
 
 /**
  * @swagger
  * tags:
  *   name: Plans
- *   description: 폴더 추가 조회
+ *   description: 게시글 생성, 조회, 수정, 삭제
  */
 
-router.use("/user", userRouter);
-router.use("/folder", folderRouter);
-router.use("/plan", planRouter);
+router.use("/auth", authRouter);
+router.use("/folders", folderRouter);
+router.use("/plans", planRouter);
 
 module.exports = router;
