@@ -1,4 +1,5 @@
 const express = require("express");
+const { verifyToken } = require("../middleware/middleware");
 const router = express.Router();
 const db = require("../db");
 
@@ -44,15 +45,15 @@ const db = require("../db");
  */
 
 // 폴더 목록 조회 API
-router.get("/", async (req, res) => {
-    try {
-        const [folder_list] = await db.query("SELECT * FROM folder");
-        res.status(200).json({ folder_list });
-        console.log(folder_list);
-    } catch (error) {
-        console.error("폴더 목록 조회 오류:", error);
-        res.status(500);
-    }
+router.get("/", verifyToken, async (req, res) => {
+  try {
+    console.log("폴더 목록 조회");
+    const [folder_list] = await db.query("SELECT folder_name, id FROM folder");
+    res.status(200).json({ folder_list });
+  } catch (error) {
+    console.error("폴더 목록 조회 오류:", error);
+    res.status(500).json({ message: "서버 오류 발생" });
+  }
 });
 
 /**
@@ -116,26 +117,32 @@ router.get("/", async (req, res) => {
  */
 
 // 폴더 추가 API
-router.post("/", async (req, res) => {
-    try {
-        const { folder_name, uid } = req.body;
+router.post("/", verifyToken, async (req, res) => {
+  try {
+    const { folder_name } = req.body;
 
-        console.log(req.body)
+    console.log("폴더 추가 요청");
 
-        if (!folder_name || !uid) {
-            return res.status(400).json({ message: "폴더명과 사용자 ID가 필요합니다." });
-        }
-
-        const [result] = await db.query(
-            "INSERT INTO folder (folder_name, uid, created_at) VALUES (?, ?, ?)",
-            [folder_name, uid, new Date()]
-        );
-
-        res.status(201).json({ message: "폴더 추가 완료", folder_id: result.insertId });
-    } catch (error) {
-        console.error("폴더 추가 오류:", error);
-        res.status(500);
+    if (typeof folder_name !== "string") {
+      return res.status(400).json({ message: "잘못된 입력 형식입니다." });
     }
+
+    if (!folder_name) {
+      return res.status(400).json({ message: "폴더명이 필요합니다." });
+    }
+
+    const [result] = await db.query(
+      "INSERT INTO folder (folder_name, uid) VALUES (?, ?)",
+      [folder_name, req.userId]
+    );
+
+    res
+      .status(201)
+      .json({ message: "폴더 추가 완료", folder_id: result.insertId });
+  } catch (error) {
+    console.error("폴더 추가 오류:", error);
+    res.status(500).json({ message: "서버 오류 발생" });
+  }
 });
 
 module.exports = router;

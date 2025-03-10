@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require("../db");
 const bcrypt = require("bcryptjs");
 const TokenUtils = require("../utils/tokenUtils");
+const { verifyToken } = require("../middleware/middleware");
 const jwt = require("jsonwebtoken");
 
 /**
@@ -59,6 +60,12 @@ router.post("/signup", async (req, res) => {
   try {
     const { user_id, password } = req.body;
 
+    console.log("회원가입 요청");
+
+    if (typeof user_id !== "string" || typeof password !== "string") {
+      return res.status(400).json({ message: "잘못된 입력 형식입니다." });
+    }
+
     // 아이디 중복 확인
     const [existingUser] = await db.query(
       "SELECT * FROM user WHERE user_id = ?",
@@ -69,10 +76,10 @@ router.post("/signup", async (req, res) => {
     }
 
     // 비밀번호 해싱
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // DB에 저장
-    await db.query("INSERT INTO user (user_id, password) VALUES (?, ?, ?)", [
+    await db.query("INSERT INTO user (user_id, password) VALUES (?, ?)", [
       user_id,
       hashedPassword,
     ]);
@@ -80,7 +87,7 @@ router.post("/signup", async (req, res) => {
     res.status(201).json({ message: "회원가입 완료" });
   } catch (error) {
     console.error("회원가입 오류:", error);
-    res.status(500);
+    res.status(500).json({ message: "서버 오류 발생" });
   }
 });
 
@@ -141,7 +148,7 @@ router.post("/login", async (req, res) => {
   try {
     const { user_id, password } = req.body;
 
-    console.log(`Login: ${user_id}`);
+    console.log("로그인 요청");
 
     // 사용자 정보 조회
     const [auth] = await db.query("SELECT * FROM user WHERE user_id = ?", [
@@ -158,35 +165,65 @@ router.post("/login", async (req, res) => {
     }
 
     // JWT 토큰 발급
-    const accessToken = TokenUtils.makeAccessToken({id: auth[0].id});
-    const refreshToken = TokenUtils.makeRefreshToken({id: auth[0].id});
+    const accessToken = TokenUtils.makeAccessToken({ id: auth[0].id });
+    const refreshToken = TokenUtils.makeRefreshToken({ id: auth[0].id });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: true, // HTTPS 환경에서만 사용 (개발 중에는 false)
       sameSite: "Strict",
-      maxAge: 10 * 60 * 1000, // 10분
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
 
-    res.status(200).json({ accessToken }); // Access Token은 JSON으로 응답
+    res.status(200).json({ accessToken });
   } catch (error) {
     console.error("로그인 오류:", error);
-    res.status(500);
+    res.status(500).json({ message: "서버 오류 발생" });
+  }
+});
+
+// 로그인 여부 확인
+router.get("/", verifyToken, (req, res) => {
+  try {
+    console.log("로그인 여부 확인 요청");
+    // const token = req.headers.authorization?.split(" ")[1]; // Bearer <token>에서 토큰만 추출
+    const header = req.get("Authorization");
+    
+    if (!header) {
+      return res.status(401).json({ message: "로그인되지 않았습니다." });
+    }
+    
+    const token = header.split(" ")[1];
+    const { ok, message, id } = verifyAccessToken(token); // 토큰 유효성 검사
+    if (!ok) {
+      return res.status(401).json({ message }); // 토큰 유효성 실패 시 에러 메시지 반환
+    }
+
+    // 로그인된 상태라면 사용자 정보 반환
+    res.status(200).json({ message: "로그인됨", userId: id });
+  } catch (error) {
+    console.error("로그인 여부 확인 오류:", error);
+    res.status(500).json({ message: "서버 오류" });
   }
 });
 
 // 토큰 갱신 API
 router.post("/refresh", (req, res) => {
+  console.log("토큰 리프레쉬 요청");
   const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken) return res.status(403).json({ message: "Refresh token이 없습니다." });
+  if (!refreshToken)
+    return res.status(403).json({ message: "Refresh token이 없습니다." });
 
   jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: "Refresh token이 유효하지 않습니다." });
+    if (err)
+      return res
+        .status(403)
+        .json({ message: "Refresh token이 유효하지 않습니다." });
 
-    const newAccessToken = generateAccessToken({ id: user.id });
+    const newAccessToken = TokenUtils.makeAccessToken({ id: user.id });
     res.status(200).json({ accessToken: newAccessToken });
   });
-})
+});
 
 /**
  * @swagger
@@ -212,12 +249,14 @@ router.post("/refresh", (req, res) => {
 
 // Logout API
 router.post("/logout", (req, res) => {
+  console.log("로그아웃 요청");
   try {
     res.clearCookie("refreshToken");
     res.status(200).json({ message: "로그아웃 완료" });
   } catch (error) {
     console.error("로그아웃 오류:", error);
-    res.status(500);
+    res.status(500).json({ message: "서버 오류 발생" });
   }
 });
+
 module.exports = router;
