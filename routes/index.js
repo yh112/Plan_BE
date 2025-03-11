@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const authRouter = require("./auth");
 const folderRouter = require("./folders");
-const planRouter = require("./plans");
 /**
  * @swagger
  * tags:
@@ -26,6 +25,5 @@ const planRouter = require("./plans");
 
 router.use("/auth", authRouter);
 router.use("/folders", folderRouter);
-router.use("/plans", planRouter);
 
 module.exports = router;
