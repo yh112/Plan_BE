@@ -44,11 +44,15 @@ const db = require("../db");
  *         description: "서버 오류"
  */
 
+// 잘 됨
 // 폴더 목록 조회 API
 router.get("/", verifyToken, async (req, res) => {
   try {
     console.log("폴더 목록 조회");
-    const [folder_list] = await db.query("SELECT folder_name, id FROM folder WHERE uid = ?", [req.userId]);
+    const [folder_list] = await db.query(
+      "SELECT folder_name, id FROM folder WHERE uid = ?",
+      [req.userId]
+    );
     res.status(200).json({ folder_list });
   } catch (error) {
     console.error("폴더 목록 조회 오류:", error);
@@ -116,6 +120,7 @@ router.get("/", verifyToken, async (req, res) => {
  *                   example: "서버 오류"
  */
 
+// 잘 됨
 // 폴더 추가 API
 router.post("/", verifyToken, async (req, res) => {
   try {
@@ -194,6 +199,7 @@ router.post("/", verifyToken, async (req, res) => {
  *         description: "서버 오류"
  */
 
+// 잘 됨
 // 계획표 조회 API
 router.get("/:fid/plans", verifyToken, async (req, res) => {
   try {
@@ -202,6 +208,7 @@ router.get("/:fid/plans", verifyToken, async (req, res) => {
     const [plan_list] = await db.query("SELECT * FROM plan WHERE fid = ?", [
       fid,
     ]);
+    if (!plan_list) res.status(404).json("계획표 목록이 없습니다.");
     res.status(200).json({ plan_list });
   } catch (error) {
     console.error("계획표 조회 오류:", error);
@@ -261,24 +268,46 @@ router.get("/:fid/plans", verifyToken, async (req, res) => {
  *         description: "서버 오류"
  */
 
+// 잘 됨
 // 계획표 추가 API
-router.post("/:fid/plans/:pid", verifyToken, async (req, res) => {
-  console.log("계획표 추가");
-  try {
-    const fid = req.params.fid;
-    const { title } = req.body;
-    const id = req.userId;
+router.post("/:fid/plans", verifyToken, async (req, res) => {
+  console.log("데이터 추가");
+  const fid = req.params.fid;
+  const id = req.userId;
+  const { title, week, table } = req.body;
 
-    if (!fid || !title) {
-      return res.status(400).json({ message: "폴더 ID, 제목이 필요합니다." });
+  console.log(req.body);
+
+  try {
+    // 1. 새로운 계획표 추가
+    const insertPlanQuery =
+      "INSERT INTO plan (fid, title, week, uid) VALUES (?, ?, ?, ?)";
+    const [planResult] = await db.query(insertPlanQuery, [
+      fid,
+      title,
+      week,
+      id,
+    ]);
+
+    const newPlanId = planResult.insertId;
+
+    // 2. 프로젝트 데이터 추가 (table 배열에 있는 값들 추가)
+    if (Array.isArray(table) && table.length > 0) {
+      const insertProjectQuery =
+        "INSERT INTO project (pid, fid, project_name, last_week, this_week) VALUES ?";
+
+      const projectValues = table.map((row) => [
+        newPlanId, // pid
+        fid, // fid
+        row[0], // project_name
+        row[1], // last_week
+        row[2], // this_week
+      ]);
+
+      await db.query(insertProjectQuery, [projectValues]);
     }
 
-    const [result] = await db.query(
-      "INSERT INTO plan (fid, uid, title) VALUES (?, ?, ?)",
-      [fid, id, title]
-    );
-
-    res.status(201).json({ message: "계획표 추가 완료" });
+    res.status(201).json({ message: "계획표 추가 완료", planId: newPlanId });
   } catch (error) {
     console.error("계획표 추가 오류:", error);
     res.status(500).json({ message: "서버 오류" });
@@ -352,11 +381,11 @@ router.post("/:fid/plans/:pid", verifyToken, async (req, res) => {
  *                   example: "서버 오류"
  */
 
+// 잘 됨
 // 계획표 수정 API
 router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
   const fid = req.params.fid;
   const pid = req.params.pid;
-  const id = req.userId;
   const { title, week, table } = req.body;
 
   try {
@@ -366,7 +395,7 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
       [fid, pid]
     );
 
-    console.log(existingPlan);
+    console.log("기존 계획표", existingPlan);
 
     if (!existingPlan) {
       return res
@@ -374,54 +403,110 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
         .json({ message: "해당 계획표를 찾을 수 없습니다." });
     }
 
-    // 2. plan 테이블에서 title, week 업데이트
+    // 2. 기존 데이터와 입력값 비교 (plan 테이블)
     const updateFieldsPlan = [];
     const updateValuesPlan = [];
 
-    if (title) {
+    if (title && title !== existingPlan.title) {
       updateFieldsPlan.push("title = ?");
       updateValuesPlan.push(title);
     }
 
-    if (week) {
+    if (week && week !== existingPlan.week) {
       updateFieldsPlan.push("week = ?");
       updateValuesPlan.push(week);
     }
 
-    if (updateFieldsPlan.length > 0) {
-      updateValuesPlan.push(pid);
-      updateValuesPlan.push(fid);
-      const queryPlan = `UPDATE plan SET ${updateFieldsPlan.join(
-        ", "
-      )} WHERE id = ? AND fid = ?`;
-      await db.query(queryPlan, [...updateValuesPlan]);
-    }
+    // 3. project 테이블 데이터 조회 (기존 프로젝트 데이터 가져오기)
+    const existingProjects = await db.query(
+      "SELECT id, project_name, last_week, this_week FROM project WHERE pid = ? AND fid = ?",
+      [pid, fid]
+    );
 
-    const updateFieldsProject = [];
-    const updateValuesProject = [];
+    console.log("기존 프로젝트 내용", existingProjects);
 
-    if (table && table.length > 0) {
-      for (let i = 0; i < table.length; i++) {
-        updateFieldsProject.push("project_name = ?");
-        updateValuesProject.push(table[i][0]); // project_name 값
+    // 4. 기존 데이터와 입력값 비교 (project 테이블)
+    const updateProjectQueries = [];
 
-        updateFieldsProject.push("last_week = ?");
-        updateValuesProject.push(table[i][1]); // last_week 값
+    for (let i = 0; i < table.length; i++) {
+      const [project_name, last_week, this_week, id] = table[i];
 
-        updateFieldsProject.push("this_week = ?");
-        updateValuesProject.push(table[i][2]); // this_week 값
+      // 기존 데이터 찾기
+      const existingProject = existingProjects[0].find((p) => p.id === id);
+
+      console.log("같은 프로젝트", existingProject);
+
+      // 업데이트할 필드와 값 초기화
+      const updateFieldsProject = [];
+      const updateValuesProject = [];
+
+      if (existingProject) {
+        // 기존 프로젝트가 있을 경우, UPDATE 쿼리 생성
+        if (
+          existingProject.project_name &&
+          project_name &&
+          project_name !== existingProject.project_name
+        ) {
+          updateFieldsProject.push("project_name = ?");
+          updateValuesProject.push(project_name);
+        }
+
+        if (
+          existingProject.last_week &&
+          last_week &&
+          last_week !== existingProject.last_week
+        ) {
+          updateFieldsProject.push("last_week = ?");
+          updateValuesProject.push(last_week);
+        }
+
+        if (
+          existingProject.this_week &&
+          this_week &&
+          this_week !== existingProject.this_week
+        ) {
+          updateFieldsProject.push("this_week = ?");
+          updateValuesProject.push(this_week);
+        }
+
+        // 수정된 데이터가 있을 경우 업데이트 쿼리 생성
+        if (updateFieldsProject.length > 0) {
+          updateValuesProject.push(id, pid, fid);
+          updateProjectQueries.push({
+            query: `UPDATE project SET ${updateFieldsProject.join(
+              ", "
+            )} WHERE id = ? AND pid = ? AND fid = ?`,
+            values: updateValuesProject,
+          });
+        }
+      } else {
+        // 기존 프로젝트가 없을 경우, INSERT 쿼리 생성
+        updateValuesProject.push(project_name, last_week, this_week, pid, fid);
+        updateProjectQueries.push({
+          query: `INSERT INTO project (project_name, last_week, this_week, pid, fid) VALUES (?, ?, ?, ?, ?)`,
+          values: updateValuesProject,
+        });
       }
     }
 
-    // project 테이블의 수정 쿼리
-    if (updateFieldsProject.length > 0) {
-      updateValuesProject.push(pid);
-      updateValuesProject.push(fid);
+    // 5. 변경 사항이 없는 경우 업데이트 실행 안 함
+    if (updateFieldsPlan.length === 0 && updateProjectQueries.length === 0) {
+      console.log("변경된 내용 없음");
+      return res.status(200).json({ message: "변경된 내용이 없습니다." });
+    }
 
-      const queryProject = `UPDATE project SET ${updateFieldsProject.join(
+    // 6. 변경된 내용만 업데이트 실행 (plan 테이블)
+    if (updateFieldsPlan.length > 0) {
+      updateValuesPlan.push(pid, fid);
+      const queryPlan = `UPDATE plan SET ${updateFieldsPlan.join(
         ", "
-      )} WHERE pid = ? AND fid = ?`;
-      await db.query(queryProject, updateValuesProject); // 배열 직접 전달
+      )} WHERE id = ? AND fid = ?`;
+      await db.query(queryPlan, updateValuesPlan);
+    }
+
+    // 7. 변경된 프로젝트 내용 업데이트 실행
+    for (const { query, values } of updateProjectQueries) {
+      await db.query(query, values);
     }
 
     res.status(200).json({ message: "계획표 수정 완료" });
@@ -506,12 +591,12 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
  *                   example: "서버 오류"
  */
 
+// TODO: 때때로 정보가 안 나옴
 // 계획표 프로젝트, 유저 정보 조회 API
 router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
-  console.log("계획표 프로젝트, 유저 정보 조회");
   const { fid, pid } = req.params;
+  console.log("계획표 프로젝트, 유저 정보 조회", pid);
   const id = req.userId;
-  console.log(fid, pid);
 
   try {
     let projects = null;
@@ -534,161 +619,6 @@ router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
     res.status(200).json({ projects, user_info });
   } catch (error) {
     console.error("프로젝트 조회 오류:", error);
-    res.status(500).json({ message: "서버 오류" });
-  }
-});
-
-/**
- * @swagger
- * /api/folders/{fid}/plans/{pid}/projects/{id}:
- *   patch:
- *     summary: "계획표 프로젝트 수정"
- *     description: "기존 계획표의 프로젝트 정보를 수정합니다."
- *     tags: [Projects]
- *     parameters:
- *       - in: path
- *         name: fid
- *         required: true
- *         description: "폴더 ID"
- *         schema:
- *           type: integer
- *           example: 1
- *       - in: path
- *         name: pid
- *         required: true
- *         description: "계획표 ID"
- *         schema:
- *           type: integer
- *           example: 1
- *       - in: path
- *         name: id
- *         required: true
- *         description: "프로젝트 ID"
- *         schema:
- *           type: integer
- *           example: 1
- *     requestBody:
- *       description: "수정할 프로젝트 내용"
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               project_name:
- *                 type: string
- *                 description: "프로젝트 이름"
- *                 example: "새로운 프로젝트"
- *               last_week:
- *                 type: string
- *                 description: "지난 주 진행 사항"
- *                 example: "지난 주에는 주요 작업 완료"
- *               this_week:
- *                 type: string
- *                 description: "이번 주 계획"
- *                 example: "이번 주에는 마무리 작업"
- *     responses:
- *       "200":
- *         description: "프로젝트 수정 성공"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "프로젝트 수정 완료"
- *       "400":
- *         description: "수정할 내용이 없을 경우"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "수정할 내용이 없습니다. (프로젝트 이름, last_week, this_week 중 하나는 입력해야 합니다)"
- *       "404":
- *         description: "프로젝트를 찾을 수 없을 경우"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "해당 프로젝트를 찾을 수 없습니다."
- *       "500":
- *         description: "서버 오류"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "서버 오류"
- */
-
-// 계획표 프로젝트 수정 API
-router.patch("/:fid/plans/:pid/projects/:id", verifyToken, async (req, res) => {
-  console.log("계획표 프로젝트 수정");
-  const planId = req.params.pid; // 계획표 ID
-  const projectId = req.params.id; // 프로젝트 ID
-
-  const { project_name, last_week, this_week } = req.body;
-
-  // 수정할 내용이 없으면 에러 반환
-  if (!project_name && !last_week && !this_week) {
-    return res.status(400).json({
-      message:
-        "수정할 내용이 없습니다. (프로젝트 이름, last_week, this_week 중 하나는 입력해야 합니다)",
-    });
-  }
-
-  try {
-    // 해당 프로젝트가 존재하는지 확인
-    const [existingProject] = await db.query(
-      "SELECT * FROM project WHERE id = ? AND plan_id = ? AND uid = ?",
-      [projectId, planId, id]
-    );
-
-    if (!existingProject) {
-      return res
-        .status(404)
-        .json({ message: "해당 프로젝트를 찾을 수 없습니다." });
-    }
-
-    // 수정할 내용이 있으면 쿼리 작성
-    const updateFields = [];
-    const updateValues = [];
-
-    if (project_name) {
-      updateFields.push("project_name = ?");
-      updateValues.push(project_name);
-    }
-
-    if (last_week) {
-      updateFields.push("last_week = ?");
-      updateValues.push(last_week);
-    }
-
-    if (this_week) {
-      updateFields.push("this_week = ?");
-      updateValues.push(this_week);
-    }
-
-    updateValues.push(projectId, planId, id); // WHERE 조건 추가
-
-    // 프로젝트 내용 수정 쿼리
-    const updateQuery = `UPDATE project SET ${updateFields.join(
-      ", "
-    )} WHERE id = ? AND plan_id = ? AND uid = ?`;
-    await db.query(updateQuery, updateValues);
-
-    res.status(200).json({ message: "프로젝트 수정 완료" });
-  } catch (error) {
-    console.error("프로젝트 수정 오류:", error);
     res.status(500).json({ message: "서버 오류" });
   }
 });
@@ -748,6 +678,7 @@ router.patch("/:fid/plans/:pid/projects/:id", verifyToken, async (req, res) => {
  *                   example: "서버 오류 발생"
  */
 
+// 잘 됨
 // 계획표 삭제 API
 router.delete("/:fid/plans/:pid", verifyToken, async (req, res) => {
   try {
@@ -760,10 +691,10 @@ router.delete("/:fid/plans/:pid", verifyToken, async (req, res) => {
       [pid, fid]
     );
 
-    console.log(existingPlan);
-
     if (existingPlan.length === 0) {
-      return res.status(404).json({ message: "해당 계획표를 찾을 수 없습니다." });
+      return res
+        .status(404)
+        .json({ message: "해당 계획표를 찾을 수 없습니다." });
     }
 
     // 계획표 삭제 실행
@@ -775,6 +706,5 @@ router.delete("/:fid/plans/:pid", verifyToken, async (req, res) => {
     res.status(500).json({ message: "서버 오류 발생" });
   }
 });
-
 
 module.exports = router;
