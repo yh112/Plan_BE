@@ -49,10 +49,29 @@ const db = require("../db");
 router.get("/", verifyToken, async (req, res) => {
   try {
     console.log("폴더 목록 조회");
-    const [folder_list] = await db.query(
-      "SELECT folder_name, id FROM folder WHERE uid = ?",
-      [req.userId]
-    );
+    console.log(req.query);
+
+    let query;
+    let params = [];
+
+    // 관리자면 사용자별 전체 폴더 조회, 사원일 경우 본인이 작성한 폴더만 조회
+    if (req.query.isAdmin === "true") {
+      query = `
+        SELECT u.name AS user_name, u.id,
+               GROUP_CONCAT(CONCAT(f.folder_name, '(', f.id, ')') ORDER BY f.id SEPARATOR ',') AS folder_list 
+        FROM user u 
+        JOIN folder f ON u.id = f.uid 
+        GROUP BY u.name;
+      `;
+    } else {
+      query = "SELECT folder_name, id FROM folder WHERE uid = ?";
+      params = [req.userId];
+    }
+
+    const [folder_list] = await db.query(query, params);
+
+    console.log(folder_list)
+
     res.status(200).json({ folder_list });
   } catch (error) {
     console.error("폴더 목록 조회 오류:", error);
@@ -208,6 +227,7 @@ router.get("/:fid/plans", verifyToken, async (req, res) => {
     const [plan_list] = await db.query("SELECT * FROM plan WHERE fid = ?", [
       fid,
     ]);
+    console.log(plan_list);
     if (!plan_list) res.status(404).json("계획표 목록이 없습니다.");
     res.status(200).json({ plan_list });
   } catch (error) {
@@ -591,7 +611,6 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
  *                   example: "서버 오류"
  */
 
-// TODO: 때때로 정보가 안 나옴
 // 계획표 프로젝트, 유저 정보 조회 API
 router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
   const { fid, pid } = req.params;
@@ -599,7 +618,8 @@ router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
   const id = req.userId;
 
   try {
-    let projects = null;
+    let projects = [];
+    let userId = id; // 기본적으로 현재 로그인한 사용자 ID
 
     if (pid !== "new") {
       // 해당 계획표에 속한 프로젝트 목록 조회
@@ -608,20 +628,27 @@ router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
         [pid, fid]
       );
       projects = projectRows;
+      
+      if (projectRows.length > 0) {
+        userId = projectRows[0].uid; // 프로젝트가 존재하면 해당 사용자의 ID로 변경
+      }
     }
 
-    const [user_info, fields] = await db.query(
+    // 사용자 정보 조회
+    const [user_info] = await db.query(
       "SELECT name, role, number FROM user WHERE id = ?",
-      [id]
+      [userId]
     );
 
-    // 'projects'가 null일 경우에는 프로젝트가 없다는 의미이므로, user_info만 전달
+    console.log(projects, user_info);
+
     res.status(200).json({ projects, user_info });
   } catch (error) {
     console.error("프로젝트 조회 오류:", error);
     res.status(500).json({ message: "서버 오류" });
   }
 });
+
 
 /**
  * @swagger

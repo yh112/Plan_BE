@@ -154,6 +154,8 @@ router.post("/login", async (req, res) => {
     const [auth] = await db.query("SELECT * FROM user WHERE user_id = ?", [
       user_id,
     ]);
+
+    // 아이디 검증
     if (auth.length === 0) {
       return res.status(400).json({ message: "존재하지 않는 아이디입니다." });
     }
@@ -163,6 +165,9 @@ router.post("/login", async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: "비밀번호가 일치하지 않습니다." });
     }
+
+    // 관리자 확인 (Boolean)
+    const isAdmin = auth[0].admin === "N" ? false : true;
 
     // JWT 토큰 발급
     const accessToken = TokenUtils.makeAccessToken({ id: auth[0].id });
@@ -175,7 +180,7 @@ router.post("/login", async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
 
-    res.status(200).json({ accessToken });
+    res.status(200).json({ accessToken, isAdmin });
   } catch (error) {
     console.error("로그인 오류:", error);
     res.status(500).json({ message: "서버 오류 발생" });
