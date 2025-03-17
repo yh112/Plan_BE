@@ -70,7 +70,7 @@ router.get("/", verifyToken, async (req, res) => {
 
     const [folder_list] = await db.query(query, params);
 
-    console.log(folder_list)
+    console.log(folder_list);
 
     res.status(200).json({ folder_list });
   } catch (error) {
@@ -288,7 +288,7 @@ router.get("/:fid/plans", verifyToken, async (req, res) => {
  *         description: "서버 오류"
  */
 
-// 잘 됨
+// 잘 됨 (사용중)
 // 계획표 추가 API
 router.post("/:fid/plans", verifyToken, async (req, res) => {
   console.log("데이터 추가");
@@ -311,21 +311,20 @@ router.post("/:fid/plans", verifyToken, async (req, res) => {
 
     const newPlanId = planResult.insertId;
 
-    // 2. 프로젝트 데이터 추가 (table 배열에 있는 값들 추가)
-    if (Array.isArray(table) && table.length > 0) {
-      const insertProjectQuery =
-        "INSERT INTO project (pid, fid, project_name, last_week, this_week) VALUES ?";
+    // 2. 프로젝트 데이터 추가
+    const insertProjectQuery =
+      "INSERT INTO project (pid, fid, uid, project_name, last_week, this_week) VALUES ?";
 
-      const projectValues = table.map((row) => [
-        newPlanId, // pid
-        fid, // fid
-        row[0], // project_name
-        row[1], // last_week
-        row[2], // this_week
-      ]);
+    const projectValues = table.map((row) => [
+      newPlanId, // pid
+      fid, // fid
+      id,
+      row[0] || null, // project_name
+      row[1] || null, // last_week
+      row[2] || null, // this_week
+    ]);
 
-      await db.query(insertProjectQuery, [projectValues]);
-    }
+    await db.query(insertProjectQuery, [projectValues]);
 
     res.status(201).json({ message: "계획표 추가 완료", planId: newPlanId });
   } catch (error) {
@@ -333,6 +332,7 @@ router.post("/:fid/plans", verifyToken, async (req, res) => {
     res.status(500).json({ message: "서버 오류" });
   }
 });
+
 
 /**
  * @swagger
@@ -406,6 +406,7 @@ router.post("/:fid/plans", verifyToken, async (req, res) => {
 router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
   const fid = req.params.fid;
   const pid = req.params.pid;
+  const uid = req.userId;
   const { title, week, table } = req.body;
 
   try {
@@ -491,19 +492,19 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
 
         // 수정된 데이터가 있을 경우 업데이트 쿼리 생성
         if (updateFieldsProject.length > 0) {
-          updateValuesProject.push(id, pid, fid);
+          updateValuesProject.push(id, pid, fid, uid);
           updateProjectQueries.push({
             query: `UPDATE project SET ${updateFieldsProject.join(
               ", "
-            )} WHERE id = ? AND pid = ? AND fid = ?`,
+            )} WHERE id = ? AND pid = ? AND fid = ? AND uid = ?`,
             values: updateValuesProject,
           });
         }
       } else {
         // 기존 프로젝트가 없을 경우, INSERT 쿼리 생성
-        updateValuesProject.push(project_name, last_week, this_week, pid, fid);
+        updateValuesProject.push(project_name, last_week, this_week, pid, fid, uid);
         updateProjectQueries.push({
-          query: `INSERT INTO project (project_name, last_week, this_week, pid, fid) VALUES (?, ?, ?, ?, ?)`,
+          query: `INSERT INTO project (project_name, last_week, this_week, pid, fid, uid) VALUES (?, ?, ?, ?, ?, ?)`,
           values: updateValuesProject,
         });
       }
@@ -617,38 +618,42 @@ router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
   console.log("계획표 프로젝트, 유저 정보 조회", pid);
   const id = req.userId;
 
-  try {
-    let projects = [];
-    let userId = id; // 기본적으로 현재 로그인한 사용자 ID
+  console.log(pid);
 
-    if (pid !== "new") {
+  try {
+    let userInfo;
+    let projects = [];
+
+    if (pid === "new") {
+      const [infos, fields] = await db.query("SELECT * FROM user WHERE id = ?", [
+        req.userId,
+      ]);
+      userInfo = infos;
+    } else {
       // 해당 계획표에 속한 프로젝트 목록 조회
       const [projectRows] = await db.query(
         "SELECT * FROM project WHERE pid = ? AND fid = ?",
         [pid, fid]
       );
       projects = projectRows;
-      
+
       if (projectRows.length > 0) {
-        userId = projectRows[0].uid; // 프로젝트가 존재하면 해당 사용자의 ID로 변경
+        const userId = projectRows[0].uid; // 프로젝트의 소유자 ID 가져오기
+
+        // 프로젝트의 uid를 기준으로 user_info 가져오기
+        const [infos, fields] = await db.query("SELECT name, role, number FROM user WHERE id = ?", [userId]);
+        userInfo = infos;
+        console.log(infos)
       }
     }
 
-    // 사용자 정보 조회
-    const [user_info] = await db.query(
-      "SELECT name, role, number FROM user WHERE id = ?",
-      [userId]
-    );
-
-    console.log(projects, user_info);
-
-    res.status(200).json({ projects, user_info });
+    // 결과 반환
+    return res.status(200).json({userInfo, projects});
   } catch (error) {
     console.error("프로젝트 조회 오류:", error);
     res.status(500).json({ message: "서버 오류" });
   }
 });
-
 
 /**
  * @swagger
