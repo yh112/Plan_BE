@@ -56,13 +56,14 @@ const jwt = require("jsonwebtoken");
  */
 
 // Signup API
-router.post("/signup", async (req, res) => {
+router.post("/signup", verifyToken, async (req, res) => {
   try {
-    const { user_id, password } = req.body;
+    const { user_id, password, user_name, number, role } = req.body;
 
     console.log("회원가입 요청");
 
-    if (typeof user_id !== "string" || typeof password !== "string") {
+    if (typeof user_id !== "string" || typeof password !== "string" || typeof user_name !== "string" || typeof number !== "string" || typeof role !== "string"
+    ) {
       return res.status(400).json({ message: "잘못된 입력 형식입니다." });
     }
 
@@ -79,9 +80,13 @@ router.post("/signup", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // DB에 저장
-    await db.query("INSERT INTO user (user_id, password) VALUES (?, ?)", [
+    await db.query("INSERT INTO user (user_id, password, name, number, role, admin) VALUES (?, ?, ?, ?, ?, ?)", [
       user_id,
       hashedPassword,
+      user_name,
+      number,
+      role,
+      role === "사원" ? 'N' : 'Y',
     ]);
 
     res.status(201).json({ message: "회원가입 완료" });
@@ -260,6 +265,39 @@ router.post("/logout", (req, res) => {
     res.status(200).json({ message: "로그아웃 완료" });
   } catch (error) {
     console.error("로그아웃 오류:", error);
+    res.status(500).json({ message: "서버 오류 발생" });
+  }
+});
+
+// 유저 삭제 API
+router.delete("/", verifyToken, async (req, res) => {
+  console.log("유저 삭제 요청");
+
+  try {
+    const { user_name } = req.body;
+
+    console.log(req.body);
+
+    // 이름이 제공되지 않으면 400 에러 반환
+    if (!user_name) {
+      return res.status(400).json({ message: "이름이 제공되지 않았습니다." });
+    }
+
+    // 이름으로 유저 조회
+    const [user] = await db.query("SELECT * FROM user WHERE name = ?", [user_name]);
+
+    // 유저가 없으면 404 에러 반환
+    if (user.length === 0) {
+      return res.status(404).json({ message: "유저를 찾을 수 없습니다." });
+    }
+
+    // 유저 삭제
+    await db.query("DELETE FROM user WHERE name = ?", [user_name]);
+
+    // 삭제 성공 메시지 반환
+    res.status(200).json({ message: "유저가 성공적으로 삭제되었습니다." });
+  } catch (error) {
+    console.error("유저 삭제 오류:", error);
     res.status(500).json({ message: "서버 오류 발생" });
   }
 });

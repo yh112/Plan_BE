@@ -333,7 +333,6 @@ router.post("/:fid/plans", verifyToken, async (req, res) => {
   }
 });
 
-
 /**
  * @swagger
  * /api/folders/{fid}/plans/{pid}:
@@ -502,7 +501,14 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
         }
       } else {
         // 기존 프로젝트가 없을 경우, INSERT 쿼리 생성
-        updateValuesProject.push(project_name, last_week, this_week, pid, fid, uid);
+        updateValuesProject.push(
+          project_name,
+          last_week,
+          this_week,
+          pid,
+          fid,
+          uid
+        );
         updateProjectQueries.push({
           query: `INSERT INTO project (project_name, last_week, this_week, pid, fid, uid) VALUES (?, ?, ?, ?, ?, ?)`,
           values: updateValuesProject,
@@ -533,6 +539,39 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
     res.status(200).json({ message: "계획표 수정 완료" });
   } catch (error) {
     console.error("계획표 수정 오류:", error);
+    res.status(500).json({ message: "서버 오류" });
+  }
+});
+
+router.put("/:fid/plans/:pid/feedback", verifyToken, async (req, res) => {
+  console.log("Feedback 수정 요청");
+
+  const fid = req.params.fid;
+  const pid = req.params.pid;
+  const { feedback } = req.body;
+
+  try {
+    // 해당 계획표가 존재하는지 확인
+    const [existingPlan] = await db.query(
+      "SELECT * FROM plan WHERE fid = ? AND id = ?",
+      [fid, pid]
+    );
+
+    if (!existingPlan) {
+      return res
+        .status(404)
+        .json({ message: "해당 계획표를 찾을 수 없습니다." });
+    }
+
+    // feedback만 업데이트
+    await db.query(
+      "UPDATE project SET feedback = ? WHERE pid = ? AND fid = ?",
+      [feedback, pid, fid]
+    );
+
+    res.status(200).json({ message: "Feedback 수정 완료" });
+  } catch (error) {
+    console.error("Feedback 수정 오류:", error);
     res.status(500).json({ message: "서버 오류" });
   }
 });
@@ -612,6 +651,35 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
  *                   example: "서버 오류"
  */
 
+function getLastWeekRange() {
+  const today = new Date();
+
+  // 지난 주의 날짜로 설정 (7일 전)
+  today.setDate(today.getDate() - 7);
+
+  // 오늘의 요일 (0: 일요일, 1: 월요일, ..., 6: 토요일)
+  const dayOfWeek = today.getDay();
+
+  // 월요일 날짜 계산
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
+  // 일요일 날짜 계산
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  // 날짜를 YYYY.MM.DD 형식으로 변환하는 함수
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}.${month}.${day}`;
+  };
+
+  // 지난 주의 월요일부터 일요일까지의 범위 반환
+  return `${formatDate(monday)}~${formatDate(sunday)}`;
+}
+
 // 계획표 프로젝트, 유저 정보 조회 API
 router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
   const { fid, pid } = req.params;
@@ -625,10 +693,41 @@ router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
     let projects = [];
 
     if (pid === "new") {
-      const [infos, fields] = await db.query("SELECT * FROM user WHERE id = ?", [
-        req.userId,
-      ]);
+      const [infos, fields] = await db.query(
+        "SELECT * FROM user WHERE id = ?",
+        [req.userId]
+      );
       userInfo = infos;
+      const lastWeek = getLastWeekRange();
+      // TODO: 쿼리 수정 필요
+      const [projectRows] = await db.query(
+        "SELECT * FROM project JOIN plan ON project.fid = plan.fid WHERE project.uid = ? AND project.fid = ? AND plan.week = ?;",
+        [id, fid, lastWeek]
+      );
+      // projects = projectRows;
+      console.log(projectRows);
+      const result = projectRows.map((project) => {
+        if (!project.this_week) {
+          // this_week가 비어있으면 빈값으로 처리
+          return {
+            ...project,
+            project_name: "", // project_name을 빈값으로
+            this_week: "", // this_week을 빈값으로
+          };
+        } else {
+          // this_week가 있으면 project_name과 this_week만 채우고 나머지는 빈값으로 처리
+          return {
+            project_name: project.project_name || "",
+            this_week: project.this_week || "",
+            // 나머지 값은 빈값으로 처리
+            last_week: "",
+            feedback: "",
+            // 여기에 필요한 추가 필드들을 빈값으로 처리
+          };
+        }
+      });
+
+      projects = result;
     } else {
       // 해당 계획표에 속한 프로젝트 목록 조회
       const [projectRows] = await db.query(
@@ -637,18 +736,36 @@ router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
       );
       projects = projectRows;
 
+      console.log(projectRows);
+
       if (projectRows.length > 0) {
         const userId = projectRows[0].uid; // 프로젝트의 소유자 ID 가져오기
 
         // 프로젝트의 uid를 기준으로 user_info 가져오기
-        const [infos, fields] = await db.query("SELECT name, role, number FROM user WHERE id = ?", [userId]);
+        const [infos, fields] = await db.query(
+          "SELECT name, role, number FROM user WHERE id = ?",
+          [userId]
+        );
         userInfo = infos;
-        console.log(infos)
+        console.log(infos);
+      } else {
+        const [planInfo] = await db.query(
+          "SELECT * FROM plan WHERE id = ? AND fid = ?",
+          [pid, fid]
+        );
+        if (planInfo.length > 0) {
+          const userId = planInfo[0].uid;
+          const [infos, fields] = await db.query(
+            "SELECT name, role, number FROM user WHERE id = ?",
+            [userId]
+          );
+          userInfo = infos;
+        }
       }
     }
 
     // 결과 반환
-    return res.status(200).json({userInfo, projects});
+    return res.status(200).json({ userInfo, projects });
   } catch (error) {
     console.error("프로젝트 조회 오류:", error);
     res.status(500).json({ message: "서버 오류" });
