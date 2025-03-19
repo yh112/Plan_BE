@@ -160,6 +160,18 @@ router.post("/", verifyToken, async (req, res) => {
       [folder_name, req.userId]
     );
 
+    // history_copy 테이블에 추가
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id. action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      [
+        "folder",
+        result.insertId,
+        "INSERT",
+        null,
+        JSON.stringify(folder_name, req.userId, result.created_date),
+      ]
+    );
+
     res
       .status(201)
       .json({ message: "폴더 추가 완료", folder_id: result.insertId });
@@ -324,7 +336,30 @@ router.post("/:fid/plans", verifyToken, async (req, res) => {
       row[2] || null, // this_week
     ]);
 
-    await db.query(insertProjectQuery, [projectValues]);
+    const [project] = await db.query(insertProjectQuery, [projectValues]);
+
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      [
+        "plan",
+        newPlanId,
+        "INSERT",
+        null,
+        JSON.stringify({
+          title,
+          week,
+          project_data: table.map((t) => ({
+            pid: newPlanId,
+            fid: fid,
+            uid: id,
+            project_name: t[0],
+            last_week: t[1],
+            this_week: t[2],
+            feedback: null,
+          })),
+        }),
+      ]
+    );
 
     res.status(201).json({ message: "계획표 추가 완료", planId: newPlanId });
   } catch (error) {
@@ -438,7 +473,7 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
     }
 
     // 3. project 테이블 데이터 조회 (기존 프로젝트 데이터 가져오기)
-    const existingProjects = await db.query(
+    const [existingProjects] = await db.query(
       "SELECT id, project_name, last_week, this_week FROM project WHERE pid = ? AND fid = ?",
       [pid, fid]
     );
@@ -452,7 +487,7 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
       const [project_name, last_week, this_week, id] = table[i];
 
       // 기존 데이터 찾기
-      const existingProject = existingProjects[0].find((p) => p.id === id);
+      const existingProject = existingProjects.find((p) => p.id === id);
 
       console.log("같은 프로젝트", existingProject);
 
@@ -536,6 +571,51 @@ router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
       await db.query(query, values);
     }
 
+    console.log(existingPlan[0]);
+
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      [
+        "plan",
+        pid,
+        "UPDATE",
+        JSON.stringify({
+          uid,
+          fid,
+          title: existingPlan[0].title,
+          week: existingPlan[0].week,
+          modified_date: existingPlan[0].modified_date,
+          created_date: existingPlan[0].created_date,
+          project_data: existingProjects.map((p) => ({
+            pid: pid,
+            fid: fid,
+            uid: uid,
+            project_name: p.project_name,
+            last_week: p.last_week,
+            this_week: p.this_week,
+            feedback: p.feedback,
+          })),
+        }),
+        JSON.stringify({
+          uid,
+          fid,
+          title,
+          week,
+          modified_date: existingPlan[0].modified_date,
+          created_date: existingPlan[0].created_date,
+          project_data: table.map((t) => ({
+            pid: pid,
+            fid: fid,
+            uid: uid,
+            project_name: t[0],
+            last_week: t[1],
+            this_week: t[2],
+            feedback: t[3],
+          })),
+        }),
+      ]
+    );
+
     res.status(200).json({ message: "계획표 수정 완료" });
   } catch (error) {
     console.error("계획표 수정 오류:", error);
@@ -548,6 +628,7 @@ router.put("/:fid/plans/:pid/feedback", verifyToken, async (req, res) => {
 
   const fid = req.params.fid;
   const pid = req.params.pid;
+  const id = req.userId;
   const { feedback } = req.body;
 
   try {
@@ -557,16 +638,50 @@ router.put("/:fid/plans/:pid/feedback", verifyToken, async (req, res) => {
       [fid, pid]
     );
 
-    if (!existingPlan) {
+    if (existingPlan.length === 0) {
       return res
         .status(404)
         .json({ message: "해당 계획표를 찾을 수 없습니다." });
     }
 
     // feedback만 업데이트
-    await db.query(
+    const [q] = await db.query(
       "UPDATE project SET feedback = ? WHERE pid = ? AND fid = ?",
       [feedback, pid, fid]
+    );
+
+    let updatedProjects = [];
+
+    if (q.affectedRows > 0) {
+      [updatedProjects] = await db.query(
+        "SELECT * FROM project WHERE pid = ? AND fid = ?",
+        [pid, fid]
+      );
+    }
+
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      [
+        "plan",
+        pid,
+        "UPDATE",
+        null,
+        JSON.stringify({
+          title: existingPlan.title,
+          week: existingPlan.week,
+          modified_date: existingPlan.modified_date,
+          created_date: existingPlan.created_date,
+          project_data: updatedProjects.map((t) => ({
+            pid: pid,
+            fid: fid,
+            uid: id,
+            project_name: t.project_name,
+            last_week: t.last_week,
+            this_week: t.this_week,
+            feedback: null,
+          })),
+        }),
+      ]
     );
 
     res.status(200).json({ message: "Feedback 수정 완료" });
@@ -699,10 +814,10 @@ router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
       );
       userInfo = infos;
       const lastWeek = getLastWeekRange();
-      // TODO: 쿼리 수정 필요
+
       const [projectRows] = await db.query(
-        "SELECT * FROM project JOIN plan ON project.fid = plan.fid WHERE project.uid = ? AND project.fid = ? AND plan.week = ?;",
-        [id, fid, lastWeek]
+        "SELECT * FROM project WHERE pid IN (SELECT id FROM plan WHERE week = ? AND fid = ? AND uid = ?);",
+        [lastWeek, fid, id]
       );
       // projects = projectRows;
       console.log(projectRows);
@@ -718,9 +833,9 @@ router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
           // this_week가 있으면 project_name과 this_week만 채우고 나머지는 빈값으로 처리
           return {
             project_name: project.project_name || "",
-            this_week: project.this_week || "",
+            this_week: "",
             // 나머지 값은 빈값으로 처리
-            last_week: "",
+            last_week: project.last_week || "",
             feedback: "",
             // 여기에 필요한 추가 필드들을 빈값으로 처리
           };
@@ -846,9 +961,30 @@ router.delete("/:fid/plans/:pid", verifyToken, async (req, res) => {
         .json({ message: "해당 계획표를 찾을 수 없습니다." });
     }
 
+    // 해당 계획표와 관련된 프로젝트도 조회
+    const [relatedProject] = await db.query(
+      "SELECT * FROM project WHERE pid = ? AND fid = ?",
+      [pid, fid]
+    );
+
     // 계획표 삭제 실행
     await db.query("DELETE FROM plan WHERE id = ? AND fid = ?", [pid, fid]);
 
+    // `history_copy`에 삭제된 계획표와 관련된 프로젝트 정보 기록
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      [
+        "plan",
+        pid,
+        "DELETE",
+        JSON.stringify({
+          plan_data: existingPlan[0],
+          project_data: relatedProject.length > 0 ? relatedProject : [], // 관련된 프로젝트 정보 추가
+        }),
+        null,
+      ]
+    );
+                                                    xx 
     res.status(200).json({ message: "계획표 삭제 완료" });
   } catch (error) {
     console.error("계획표 삭제 오류:", error);

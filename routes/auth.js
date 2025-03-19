@@ -80,13 +80,22 @@ router.post("/signup", verifyToken, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // DB에 저장
-    await db.query("INSERT INTO user (user_id, password, name, number, role, admin) VALUES (?, ?, ?, ?, ?, ?)", [
+    const [id] = await db.query("INSERT INTO user (user_id, password, name, number, role, admin) VALUES (?, ?, ?, ?, ?, ?)", [
       user_id,
       hashedPassword,
       user_name,
       number,
       role,
       role === "사원" ? 'N' : 'Y',
+    ]);
+
+    // 히스토리 테이블에 저장
+    await db.query("INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)", [
+      user_id,
+      id.insertId,
+      'INSERT',
+      null,
+      JSON.stringify({ user_id, password: hashedPassword, user_name, number, role }),
     ]);
 
     res.status(201).json({ message: "회원가입 완료" });
@@ -293,6 +302,16 @@ router.delete("/", verifyToken, async (req, res) => {
 
     // 유저 삭제
     await db.query("DELETE FROM user WHERE name = ?", [user_name]);
+
+    // 히스토리 테이블에 저장
+    const { id, user_id, password, number, role } = user[0];
+    await db.query("INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)", [
+      user_id,
+      id,
+      'delete',
+      JSON.stringify({ user_id, password: hashedPassword, user_name, number, role }),
+      null,
+    ]);
 
     // 삭제 성공 메시지 반환
     res.status(200).json({ message: "유저가 성공적으로 삭제되었습니다." });
