@@ -6,7 +6,12 @@ echo "SERVER: $SERVER"
 
 cd /home/yihyun/plan/Plan_BE
 
-git pull origin main
+# SSH 설정
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_rsa
+
+# Git 리모트 URL을 SSH로 변경
+git remote set-url origin git@github.com:yihyun/Plan_BE.git
 
 npm install
 
