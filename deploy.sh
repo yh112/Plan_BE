@@ -23,7 +23,7 @@ eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_rsa
 
 # Git 리모트 URL을 SSH로 변경
-git remote set-url origin git@github.com:yihyun/Plan_BE.git
+git remote add origin git@github.com:yihyun/Plan_BE.git
 git remote -v
 git pull -o StrictHostKeyChecking=no
 git log -1  # 가장 최신 커밋을 확인
