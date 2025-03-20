@@ -16,10 +16,11 @@ jobs:
       - name: Deploy to Ubuntu Server
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SERVER: "192.168.0.21"
-          USER: "yihyun"
+          SERVER: ${{ secrets.SERVER }}
+          USER: ${{ secrets.USER }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          echo ${{ github.workspace }}
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa $USER@$SERVER 'bash -s' < /home/yihyun/deploy.sh
