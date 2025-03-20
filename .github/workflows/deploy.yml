@@ -20,13 +20,23 @@ jobs:
           USER: ${{ secrets.USER }}
         run: |
           # SSH 설정
+          echo "Setting up SSH..."
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          
+          echo "SSH setup completed."
+
           # 최신 코드 서버에 복사 (deploy.sh 포함)
+          echo "Copying deploy.sh to the server..."
           scp -o StrictHostKeyChecking=no deploy.sh $USER@$SERVER:/home/yihyun/deploy.sh
+          echo "deploy.sh copied to server."
+
+          # 서버에서 deploy.sh 실행
+          echo "Setting execute permissions for deploy.sh..."
           ssh -o StrictHostKeyChecking=no $USER@$SERVER 'chmod +x /home/yihyun/deploy.sh'
+          echo "Execute permissions set for deploy.sh."
 
           # deploy.sh 실행
+          echo "Executing deploy.sh on server..."
           ssh -o StrictHostKeyChecking=no $USER@$SERVER 'bash /home/yihyun/deploy.sh'
+          echo "deploy.sh executed successfully."
