@@ -30,12 +30,8 @@ jobs:
 
           # Git 리모트 URL을 SSH로 변경 (리모트 URL 확인 및 변경)
           git remote set-url origin git@github.com:yihyun/Plan_BE.git
-          git config --global user.name "Your GitHub Username"  # 사용자 이름 설정
-          git config --global user.email "your-email@example.com"  # 사용자 이메일 설정
-
-          # GitHub SSH 연결 확인 (디버깅용)
-          echo "Testing SSH connection to GitHub..."
-          ssh -T git@github.com
+          git config --global user.name "yh112"  # 사용자 이름 설정
+          git config --global user.email "msh7377@gmail.com"  # 사용자 이메일 설정
 
           # 최신 코드 서버에 복사 (deploy.sh 포함)
           echo "Copying deploy.sh to the server..."
