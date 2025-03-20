@@ -24,6 +24,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -p -m PEM -f ~/.ssh/id_rsa
           echo "SSH setup completed."
 
           # 최신 코드 서버에 복사 (deploy.sh 포함)
