@@ -19,8 +19,14 @@ jobs:
           SERVER: ${{ secrets.SERVER }}
           USER: ${{ secrets.USER }}
         run: |
+          # SSH 설정
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          echo ${{ github.workspace }}
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa $USER@$SERVER 'bash -s' < /home/yihyun/deploy.sh
+          
+          # 최신 코드 서버에 복사 (deploy.sh 포함)
+          scp -o StrictHostKeyChecking=no deploy.sh $USER@$SERVER:/home/yihyun/deploy.sh
+          ssh -o StrictHostKeyChecking=no $USER@$SERVER 'chmod +x /home/yihyun/deploy.sh'
+
+          # deploy.sh 실행
+          ssh -o StrictHostKeyChecking=no $USER@$SERVER 'bash /home/yihyun/deploy.sh'
