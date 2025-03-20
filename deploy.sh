@@ -6,6 +6,10 @@ echo "SERVER: $SERVER"
 
 cd /home/yihyun/plan/Plan_BE
 
+git credential-manager uninstall
+
+git credential-manager install
+
 # SSH 키가 제대로 설정되어 있는지 확인
 if [ ! -s ~/.ssh/id_rsa ]; then
   echo "Error: SSH private key is missing or empty!"
