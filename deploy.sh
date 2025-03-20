@@ -15,7 +15,7 @@ git remote set-url origin git@github.com:yihyun/Plan_BE.git
 
 ssh -T git@github.com
 
-git pull origin main
+git pull origin main https://username:password@github.com/Plan_BE.git
 git log -1  # 가장 최신 커밋을 확인
 
 npm install
