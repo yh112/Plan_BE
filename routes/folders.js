@@ -142,6 +142,7 @@ router.get("/", verifyToken, async (req, res) => {
 // 잘 됨
 // 폴더 추가 API
 router.post("/", verifyToken, async (req, res) => {
+  const id = req.userId;
   try {
     const { folder_name } = req.body;
 
@@ -156,19 +157,21 @@ router.post("/", verifyToken, async (req, res) => {
     }
 
     const [result] = await db.query(
-      "INSERT INTO folder (folder_name, uid) VALUES (?, ?)",
+      "INSERT INTO folder (folder_name, uid) VALUES (?, ?) RETURNING *",
       [folder_name, req.userId]
     );
 
+    console.log(result);
+
     // history_copy 테이블에 추가
     await db.query(
-      "INSERT INTO history_copy (table_name, row_id. action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
       [
         "folder",
-        result.insertId,
+        result[0].id,
         "INSERT",
         null,
-        JSON.stringify(folder_name, req.userId, result.created_date),
+        JSON.stringify({folder_name: folder_name, uid: id, created_date: result[0].created_date}),
       ]
     );
 
