@@ -6,6 +6,14 @@ echo "SERVER: $SERVER"
 
 cd /home/yihyun/plan/Plan_BE
 
+# SSH 키가 제대로 설정되어 있는지 확인
+if [ ! -s ~/.ssh/id_rsa ]; then
+  echo "Error: SSH private key is missing or empty!"
+  exit 1
+else
+  echo "SSH private key is present."
+fi
+
 # SSH 설정
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_rsa
@@ -15,7 +23,7 @@ git remote set-url origin git@github.com:yihyun/Plan_BE.git
 
 ssh -T git@github.com
 
-git pull origin main https://username:password@github.com/Plan_BE.git
+git pull origin main
 git log -1  # 가장 최신 커밋을 확인
 
 npm install
