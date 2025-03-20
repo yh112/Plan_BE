@@ -22,4 +22,4 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa $USER@$SERVER 'bash -s' < ./deploy.sh
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa $USER@$SERVER 'bash -s' < ./home/yihyun/deploy.sh
