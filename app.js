@@ -13,7 +13,7 @@ app.use(cookieParser());
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
-app.listen(process.env.PORT, () => {
+app.listen(process.env.PORT, process.env.SERVER, () => {
     console.log(`✅ Server running on http://${process.env.SERVER}:${process.env.PORT}`);
     console.log(`📌 Swagger Docs: http://${process.env.SERVER}:${process.env.PORT}/api-docs`);
   });
