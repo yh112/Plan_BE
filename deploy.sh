@@ -31,6 +31,8 @@ npm install
 # 애플리케이션 상태 확인
 pm2 list | grep 'app.js' > /dev/null
 
+node app.js
+
 # 애플리케이션이 실행 중인지 확인하고, 실행 중이면 재시작, 없으면 새로 시작
 if [ $? -eq 0 ]; then
   # 이미 실행 중이면 애플리케이션 재시작
