@@ -18,6 +18,9 @@ fi
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_rsa
 
+nvm install 22  # Node.js 16 버전 설치
+nvm use 22
+
 git remote -v
 git pull origin main -o StrictHostKeyChecking=no
 git log -1  # 가장 최신 커밋을 확인
