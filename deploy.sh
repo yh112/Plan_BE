@@ -18,6 +18,10 @@ fi
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_rsa
 
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 nvm install 22  # Node.js 16 버전 설치
 nvm use 22
 
