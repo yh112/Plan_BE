@@ -184,6 +184,57 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
+// 폴더 삭제 API
+router.delete("/:fid", verifyToken, async (req, res) => {
+  console.log("폴더 삭제 요청");
+  
+  try {
+    const fid = req.params.fid;
+
+    // 1. 폴더 가져오기
+    const [folderResult] = await db.query("SELECT * FROM folder WHERE id = ?", [fid]);
+    if (folderResult.length === 0) {
+      return res.status(404).json({ message: "해당 폴더를 찾을 수 없습니다." });
+    }
+    const folder = folderResult[0];
+
+    // 2. plan 목록 가져오기
+    const [plansResult] = await db.query("SELECT * FROM plan WHERE fid = ?", [fid]);
+
+    // 3. 각 plan마다 project 조회해서 plans 확장
+    const plansWithProjects = await Promise.all(
+      plansResult.map(async (plan) => {
+        const [projects] = await db.query("SELECT * FROM project WHERE pid = ?", [plan.id]);
+        return {
+          ...plan,
+          projects: projects,
+        };
+      })
+    );
+
+    // 4. 전체 JSON 구조로 합치기
+    const fullData = {
+      ...folder,
+      plans: plansWithProjects,
+    };
+
+    // 5. 로그 기록
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      ["folder", fid, "DELETE", JSON.stringify(fullData), null]
+    );
+
+    // 6. 실제 삭제
+    await db.query("DELETE FROM folder WHERE id = ?", [fid]);
+
+    res.status(204).json({ message: "폴더 삭제 완료" });
+  } catch (error) {
+    console.error("폴더 삭제 오류:", error);
+    res.status(500).json({ message: "서버 오류 발생" });
+  }
+});
+
+
 /**
  * @swagger
  * /api/folders/{fid}/plans:
