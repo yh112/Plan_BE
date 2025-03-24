@@ -257,18 +257,20 @@ router.put("/:fid", verifyToken, async (req, res) => {
     ]);
 
     console.log(folderResult);
-    
+
     if (folderResult.length === 0) {
       return res.status(404).json({ message: "해당 폴더를 찾을 수 없습니다." });
     }
     const folder = folderResult[0];
 
-    const updateFolder = await db.query(
-      "UPDATE folder SET folder_name = ? WHERE id = ? RETURNING *",
-      [folder_name, fid]
-    );
+    // UPDATE 실행
+    await db.query("UPDATE folder SET folder_name = ? WHERE id = ?", [folder_name, fid]);
 
-    // 2. 로그 기록
+    // 업데이트된 값 다시 조회
+    const [updatedFolderResult] = await db.query("SELECT * FROM folder WHERE id = ?", [fid]);
+    const updatedFolder = updatedFolderResult[0];
+
+    // 로그 기록
     await db.query(
       "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
       [
@@ -276,9 +278,12 @@ router.put("/:fid", verifyToken, async (req, res) => {
         fid,
         "UPDATE",
         JSON.stringify(folder),
-        JSON.stringify(updateFolder[0]),
+        JSON.stringify(updatedFolder),
       ]
     );
+
+    res.status(200).json({ message: "폴더 수정 완료" });
+    
   } catch (error) {
     console.error("폴더 수정 오류:", error);
     res.status(500).json({ message: "서버 오류" });
