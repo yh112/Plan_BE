@@ -32,10 +32,7 @@ git log -1  # 가장 최신 커밋을 확인
 npm install
 
 # 애플리케이션 상태 확인
-pm2 list | grep 'app.js' > /dev/null
-
-# 애플리케이션이 실행 중인지 확인하고, 실행 중이면 재시작, 없으면 새로 시작
-if [ $? -eq 0 ]; then
+if pm2 jlist | jq '.[] | select(.name == "app") | .pm2_env.status' > /dev/null; then
   # 이미 실행 중이면 애플리케이션 재시작
   echo "Application is already running. Restarting..."
   pm2 restart app.js || exit

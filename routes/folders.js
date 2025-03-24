@@ -171,7 +171,11 @@ router.post("/", verifyToken, async (req, res) => {
         result[0].id,
         "INSERT",
         null,
-        JSON.stringify({folder_name: folder_name, uid: id, created_date: result[0].created_date}),
+        JSON.stringify({
+          folder_name: folder_name,
+          uid: id,
+          created_date: result[0].created_date,
+        }),
       ]
     );
 
@@ -187,24 +191,31 @@ router.post("/", verifyToken, async (req, res) => {
 // 폴더 삭제 API
 router.delete("/:fid", verifyToken, async (req, res) => {
   console.log("폴더 삭제 요청");
-  
+
   try {
     const fid = req.params.fid;
 
     // 1. 폴더 가져오기
-    const [folderResult] = await db.query("SELECT * FROM folder WHERE id = ?", [fid]);
+    const [folderResult] = await db.query("SELECT * FROM folder WHERE id = ?", [
+      fid,
+    ]);
     if (folderResult.length === 0) {
       return res.status(404).json({ message: "해당 폴더를 찾을 수 없습니다." });
     }
     const folder = folderResult[0];
 
     // 2. plan 목록 가져오기
-    const [plansResult] = await db.query("SELECT * FROM plan WHERE fid = ?", [fid]);
+    const [plansResult] = await db.query("SELECT * FROM plan WHERE fid = ?", [
+      fid,
+    ]);
 
     // 3. 각 plan마다 project 조회해서 plans 확장
     const plansWithProjects = await Promise.all(
       plansResult.map(async (plan) => {
-        const [projects] = await db.query("SELECT * FROM project WHERE pid = ?", [plan.id]);
+        const [projects] = await db.query(
+          "SELECT * FROM project WHERE pid = ?",
+          [plan.id]
+        );
         return {
           ...plan,
           projects: projects,
@@ -234,6 +245,45 @@ router.delete("/:fid", verifyToken, async (req, res) => {
   }
 });
 
+router.put("/:fid", verifyToken, async (req, res) => {
+  console.log("폴더 수정 요청, fid:", req.params.fid);
+  try {
+    const fid = req.params.fid;
+    const { folder_name } = req.body;
+
+    // 1. 폴더 가져오기
+    const [folderResult] = await db.query("SELECT * FROM folder WHERE id = ?", [
+      fid,
+    ]);
+
+    console.log(folderResult);
+    
+    if (folderResult.length === 0) {
+      return res.status(404).json({ message: "해당 폴더를 찾을 수 없습니다." });
+    }
+    const folder = folderResult[0];
+
+    const updateFolder = await db.query(
+      "UPDATE folder SET folder_name = ? WHERE id = ? RETURNING *",
+      [folder_name, fid]
+    );
+
+    // 2. 로그 기록
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      [
+        "folder",
+        fid,
+        "UPDATE",
+        JSON.stringify(folder),
+        JSON.stringify(updateFolder[0]),
+      ]
+    );
+  } catch (error) {
+    console.error("폴더 수정 오류:", error);
+    res.status(500).json({ message: "서버 오류" });
+  }
+});
 
 /**
  * @swagger
@@ -1038,7 +1088,7 @@ router.delete("/:fid/plans/:pid", verifyToken, async (req, res) => {
         null,
       ]
     );
-                                                    xx 
+    xx;
     res.status(200).json({ message: "계획표 삭제 완료" });
   } catch (error) {
     console.error("계획표 삭제 오류:", error);
