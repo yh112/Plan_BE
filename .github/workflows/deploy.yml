@@ -19,22 +19,44 @@ jobs:
           node-version: '22'
 
       - name: Deploy to Ubuntu Server
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SERVER: ${{ secrets.SERVER }}
-          USER: ${{ secrets.USER }}
-        run: |
-          # 최신 코드 서버에 복사 (deploy.sh 포함)
-          echo "Copying deploy.sh to the server..."
-          scp -o StrictHostKeyChecking=no deploy.sh $USER@$SERVER:/home/yihyun/deploy.sh
-          echo "deploy.sh copied to server."
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "📦 배포 시작: $USER@$SERVER"
+            cd /home/yihyun/plan/Plan_BE
 
-          # 서버에서 deploy.sh 실행
-          echo "Setting execute permissions for deploy.sh..."
-          ssh -o StrictHostKeyChecking=no $USER@$SERVER 'chmod +x /home/yihyun/deploy.sh'
-          echo "Execute permissions set for deploy.sh."
+            echo "🔐 SSH agent 설정"
+            eval "$(ssh-agent -s)"
+            ssh-add ~/.ssh/id_rsa
 
-          # deploy.sh 실행
-          echo "Executing deploy.sh on server..."
-          ssh -o StrictHostKeyChecking=no $USER@$SERVER 'bash /home/yihyun/deploy.sh'
-          echo "deploy.sh executed successfully."
+            echo "🟢 NVM 및 Node.js 설정"
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+            nvm install 22
+            nvm use 22
+
+            echo "🛠 최신 코드 가져오기"
+            git config --global user.name "yh112"
+            git config --global user.email "msh7377@gmail.com"
+            git pull origin main
+            git log -1
+
+            echo "📦 의존성 설치"
+            npm install
+
+            echo "🚀 PM2 상태 확인 및 재시작 또는 실행"
+            if pm2 jlist | jq '.[] | select(.name == "app") | .pm2_env.status' > /dev/null; then
+              echo "✔️ 앱이 실행 중입니다. 재시작 중..."
+              pm2 restart app.js || exit 1
+            else
+              echo "❌ 앱이 꺼져 있습니다. 시작합니다..."
+              pm2 start app.js || exit 1
+            fi
+
+            echo "📋 실행 중인 프로세스 확인"
+            pm2 list
