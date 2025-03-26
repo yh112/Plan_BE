@@ -306,7 +306,7 @@ router.delete("/", verifyToken, async (req, res) => {
     // 히스토리 테이블에 저장
     const { id, user_id, password, number, role } = user[0];
     await db.query("INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)", [
-      user_id,
+      "user",
       id,
       'delete',
       JSON.stringify({ user_id, password, user_name, number, role }),
