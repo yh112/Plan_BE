@@ -32,17 +32,7 @@ jobs:
             eval "$(ssh-agent -s)"
             ssh-add ~/.ssh/id_rsa
 
-            echo "🟢 NVM 및 Node.js 설정"
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-            nvm install 22
-            nvm use 22
-
             echo "🛠 최신 코드 가져오기"
-            git config --global user.name "yh112"
-            git config --global user.email "msh7377@gmail.com"
             git pull origin main
             git log -1
 

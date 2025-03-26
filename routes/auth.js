@@ -298,18 +298,20 @@ router.delete("/", verifyToken, async (req, res) => {
     // 유저가 없으면 404 에러 반환
     if (user.length === 0) {
       return res.status(404).json({ message: "유저를 찾을 수 없습니다." });
+    } else if (user.length > 1) {
+      return res.status(500).json({ message: "중복된 이름이 존재합니다." });
     }
 
     // 유저 삭제
     await db.query("DELETE FROM user WHERE name = ?", [user_name]);
 
     // 히스토리 테이블에 저장
-    const { id, user_id, password, number, role } = user[0];
+    const { id, user_id, password, name, number, role } = user[0];
     await db.query("INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)", [
       "user",
       id,
       'delete',
-      JSON.stringify({ user_id, password, user_name, number, role }),
+      JSON.stringify({ user_id, password, name, number, role }),
       null,
     ]);
 
