@@ -25,18 +25,9 @@ jobs:
           USER: ${{ secrets.USER }}
         run: |
           # SSH 설정
-          echo "Setting up SSH..."
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
           echo "SSH setup completed."
-
-          # Git 리모트 URL을 SSH로 변경 (리모트 URL 확인 및 변경)
-          git remote set-url origin git@github.com:yihyun/Plan_BE.git
-          git config --global user.name "yh112"  # 사용자 이름 설정
-          git config --global user.email "msh7377@gmail.com"  # 사용자 이메일 설정
 
           # 최신 코드 서버에 복사 (deploy.sh 포함)
           echo "Copying deploy.sh to the server..."

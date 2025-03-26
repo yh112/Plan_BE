@@ -309,7 +309,7 @@ router.delete("/", verifyToken, async (req, res) => {
       user_id,
       id,
       'delete',
-      JSON.stringify({ user_id, password: hashedPassword, user_name, number, role }),
+      JSON.stringify({ user_id, password, user_name, number, role }),
       null,
     ]);
 
