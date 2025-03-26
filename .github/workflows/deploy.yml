@@ -24,11 +24,6 @@ jobs:
           SERVER: ${{ secrets.SERVER }}
           USER: ${{ secrets.USER }}
         run: |
-          # SSH 설정
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/id_rsa
-          echo "SSH setup completed."
-
           # 최신 코드 서버에 복사 (deploy.sh 포함)
           echo "Copying deploy.sh to the server..."
           scp -o StrictHostKeyChecking=no deploy.sh $USER@$SERVER:/home/yihyun/deploy.sh
