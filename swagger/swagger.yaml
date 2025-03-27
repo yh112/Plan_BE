@@ -78,28 +78,6 @@ paths:
           description: "로그인되지 않음"
         "500":
           description: "서버 오류"
-
-  /auth/refresh:
-    post:
-      summary: "Access Token 갱신"
-      tags: [Auth]
-      responses:
-        "200":
-          description: "토큰 재발급 성공"
-        "403":
-          description: "Refresh Token 오류"
-
-  /auth/logout:
-    post:
-      summary: "로그아웃"
-      tags: [Auth]
-      responses:
-        "200":
-          description: "로그아웃 성공"
-        "500":
-          description: "서버 오류"
-
-  /auth:
     delete:
       summary: "유저 삭제"
       description: "이름으로 유저를 삭제합니다. (관리자 전용)"
@@ -120,6 +98,26 @@ paths:
           description: "입력 누락"
         "404":
           description: "유저 없음"
+        "500":
+          description: "서버 오류"
+
+  /auth/refresh:
+    post:
+      summary: "Access Token 갱신"
+      tags: [Auth]
+      responses:
+        "200":
+          description: "토큰 재발급 성공"
+        "403":
+          description: "Refresh Token 오류"
+
+  /auth/logout:
+    post:
+      summary: "로그아웃"
+      tags: [Auth]
+      responses:
+        "200":
+          description: "로그아웃 성공"
         "500":
           description: "서버 오류"
 
@@ -154,7 +152,6 @@ paths:
         "500":
           description: "서버 오류"
 
-
   /auth/password:
     patch:
       summary: "비밀번호 변경"
@@ -184,7 +181,6 @@ paths:
           description: "사용자 없음"
         "500":
           description: "서버 오류"
-
 
   /folders:
     get:
