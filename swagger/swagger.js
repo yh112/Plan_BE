@@ -36,7 +36,7 @@ const yaml = require("js-yaml");
 const path = require("path");
 
 const swaggerDocument = yaml.load(
-  fs.readFileSync(path.join(__dirname, "../swagger.yaml"), "utf8")
+  fs.readFileSync(path.join(__dirname, "./swagger.yaml"), "utf8")
 );
 
 module.exports = {
