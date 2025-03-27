@@ -11,7 +11,7 @@ paths:
   /auth/signup:
     post:
       summary: "회원가입"
-      description: "새로운 사용자를 등록합니다."
+      description: "새로운 사용자를 등록합니다. (관리자 권한 필요)"
       tags: [Auth]
       requestBody:
         required: true
@@ -39,14 +39,14 @@ paths:
         "201":
           description: "회원가입 성공"
         "400":
-          description: "이미 존재하는 아이디"
+          description: "입력값 오류 또는 중복 ID"
         "500":
           description: "서버 오류"
 
   /auth/login:
     post:
       summary: "로그인"
-      description: "사용자가 아이디와 비밀번호로 로그인합니다."
+      description: "아이디와 비밀번호로 로그인 후 토큰 발급."
       tags: [Auth]
       requestBody:
         required: true
@@ -57,17 +57,37 @@ paths:
               properties:
                 user_id:
                   type: string
-                  example: "test_user"
                 password:
                   type: string
-                  example: "123456"
       responses:
         "200":
-          description: "로그인 성공"
+          description: "로그인 성공 (accessToken 및 isAdmin 반환)"
         "400":
-          description: "잘못된 요청"
+          description: "아이디 또는 비밀번호 오류"
         "500":
           description: "서버 오류"
+
+  /auth:
+    get:
+      summary: "로그인 상태 확인"
+      tags: [Auth]
+      responses:
+        "200":
+          description: "로그인됨"
+        "401":
+          description: "로그인되지 않음"
+        "500":
+          description: "서버 오류"
+
+  /auth/refresh:
+    post:
+      summary: "Access Token 갱신"
+      tags: [Auth]
+      responses:
+        "200":
+          description: "토큰 재발급 성공"
+        "403":
+          description: "Refresh Token 오류"
 
   /auth/logout:
     post:
@@ -75,7 +95,31 @@ paths:
       tags: [Auth]
       responses:
         "200":
-          description: "로그아웃 완료"
+          description: "로그아웃 성공"
+        "500":
+          description: "서버 오류"
+
+  /auth:
+    delete:
+      summary: "유저 삭제"
+      description: "이름으로 유저를 삭제합니다. (관리자 전용)"
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_name:
+                  type: string
+      responses:
+        "200":
+          description: "삭제 성공"
+        "400":
+          description: "입력 누락"
+        "404":
+          description: "유저 없음"
         "500":
           description: "서버 오류"
 
@@ -128,9 +172,185 @@ paths:
               properties:
                 folder_name:
                   type: string
+                  example: "새 폴더명"
       responses:
         "200":
           description: "폴더 수정 완료"
+        "500":
+          description: "서버 오류"
+    delete:
+      summary: "폴더 삭제"
+      tags: [Folders]
+      parameters:
+        - in: path
+          name: fid
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: "폴더 삭제 완료"
+        "404":
+          description: "폴더를 찾을 수 없음"
+        "500":
+          description: "서버 오류"
+
+  /folders/{fid}/plans:
+    get:
+      summary: "계획표 목록 조회"
+      tags: [Plans]
+      parameters:
+        - in: path
+          name: fid
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "계획표 목록 조회 성공"
+        "500":
+          description: "서버 오류"
+    post:
+      summary: "계획표 추가"
+      tags: [Plans]
+      parameters:
+        - in: path
+          name: fid
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                week:
+                  type: string
+                table:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: string
+      responses:
+        "201":
+          description: "계획표 추가 완료"
+        "500":
+          description: "서버 오류"
+
+  /folders/{fid}/plans/{pid}:
+    put:
+      summary: "계획표 수정"
+      tags: [Plans]
+      parameters:
+        - in: path
+          name: fid
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: pid
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                week:
+                  type: string
+                table:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: string
+      responses:
+        "200":
+          description: "계획표 수정 완료"
+        "404":
+          description: "해당 계획표 없음"
+        "500":
+          description: "서버 오류"
+    delete:
+      summary: "계획표 삭제"
+      tags: [Plans]
+      parameters:
+        - in: path
+          name: fid
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: pid
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "계획표 삭제 완료"
+        "404":
+          description: "계획표를 찾을 수 없음"
+        "500":
+          description: "서버 오류"
+
+  /folders/{fid}/plans/{pid}/projects:
+    get:
+      summary: "계획표의 프로젝트 및 유저 정보 조회"
+      tags: [Plans]
+      parameters:
+        - in: path
+          name: fid
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: pid
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "프로젝트 및 유저 정보 조회 성공"
+        "500":
+          description: "서버 오류"
+
+  /folders/{fid}/plans/{pid}/feedback:
+    put:
+      summary: "피드백 수정"
+      tags: [Plans]
+      parameters:
+        - in: path
+          name: fid
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: pid
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                feedback:
+                  type: string
+      responses:
+        "200":
+          description: "Feedback 수정 완료"
         "500":
           description: "서버 오류"
 

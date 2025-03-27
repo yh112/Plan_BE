@@ -3,48 +3,6 @@ const { verifyToken } = require("../middleware/middleware");
 const router = express.Router();
 const db = require("../db");
 
-/**
- * @swagger
- * /api/folders:
- *   get:
- *     summary: "폴더 목록 조회"
- *     description: "저장된 모든 폴더 목록을 조회합니다."
- *     tags: [Folders]
- *     responses:
- *       "200":
- *         description: "폴더 목록 조회 성공"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 folder_list:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         description: "폴더 ID"
- *                         example: 1
- *                       folder_name:
- *                         type: string
- *                         description: "폴더명"
- *                         example: "work"
- *                       uid:
- *                         type: integer
- *                         description: "사용자 ID"
- *                         example: 1
- *                       created_at:
- *                         type: string
- *                         format: date-time
- *                         description: "생성 일자"
- *                         example: "2025-03-06T12:00:00Z"
- *       "500":
- *         description: "서버 오류"
- */
-
-// 잘 됨
 // 폴더 목록 조회 API
 router.get("/", verifyToken, async (req, res) => {
   try {
@@ -79,67 +37,6 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/folders:
- *   post:
- *     summary: "폴더 추가"
- *     description: "새로운 폴더를 추가합니다."
- *     tags: [Folders]
- *     requestBody:
- *       description: "폴더 추가를 위한 데이터 입력"
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               folder_name:
- *                 type: string
- *                 description: "폴더명"
- *                 example: "work"
- *               uid:
- *                 type: integer
- *                 description: "사용자 ID"
- *                 example: 1
- *     responses:
- *       "201":
- *         description: "폴더 추가 성공"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "폴더 추가 완료"
- *                 folder_id:
- *                   type: integer
- *                   description: "추가된 폴더 ID"
- *                   example: 10
- *       "400":
- *         description: "잘못된 요청 (필수 값 누락)"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "폴더명과 사용자 ID가 필요합니다."
- *       "500":
- *         description: "서버 오류"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "서버 오류"
- */
-
-// 잘 됨
 // 폴더 추가 API
 router.post("/", verifyToken, async (req, res) => {
   const id = req.userId;
@@ -290,56 +187,6 @@ router.put("/:fid", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/folders/{fid}/plans:
- *   get:
- *     summary: "계획표 목록 조회"
- *     description: "저장된 모든 계획표 목록을 조회합니다."
- *     tags: [Plans]
- *     parameters:
- *       - in: path
- *         name: fid
- *         required: true
- *         description: "폴더 ID"
- *         schema:
- *           type: integer
- *           example: 1
- *     responses:
- *       "200":
- *         description: "계획표 목록 조회 성공"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 plan_list:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         description: "계획표 ID"
- *                         example: 1
- *                       fid:
- *                         type: integer
- *                         description: "폴더 ID"
- *                         example: 1
- *                       uid:
- *                         type: integer
- *                         description: "사용자 ID"
- *                         example: 1
- *                       created_at:
- *                         type: string
- *                         format: date-time
- *                         description: "생성 일자"
- *                         example: "2025-03-06T12:00:00Z"
- *       "500":
- *         description: "서버 오류"
- */
-
-// 잘 됨
 // 계획표 조회 API
 router.get("/:fid/plans", verifyToken, async (req, res) => {
   try {
@@ -357,59 +204,6 @@ router.get("/:fid/plans", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/folders/{fid}/plans:
- *   post:
- *     summary: "계획표 추가"
- *     description: "새로운 계획표를 추가합니다."
- *     tags: [Plans]
- *     requestBody:
- *       description: "계획표 추가를 위한 데이터 입력"
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               fid:
- *                 type: integer
- *                 description: "폴더 ID"
- *                 example: 1
- *               uid:
- *                 type: integer
- *                 description: "사용자 ID"
- *                 example: 1
- *               title:
- *                 type: string
- *                 description: "계획표 제목"
- *                 example: "주간 일정"
- *     responses:
- *       "201":
- *         description: "계획표 추가 성공"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "계획표 추가 완료"
- *       "400":
- *         description: "잘못된 요청 (필수 값 누락)"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "폴더 ID, 사용자 ID, 제목이 필요합니다."
- *       "500":
- *         description: "서버 오류"
- */
-
-// 잘 됨 (사용중)
 // 계획표 추가 API
 router.post("/:fid/plans", verifyToken, async (req, res) => {
   console.log("데이터 추가");
@@ -477,74 +271,6 @@ router.post("/:fid/plans", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/folders/{fid}/plans/{pid}:
- *   patch:
- *     summary: "계획표 수정"
- *     description: "기존 계획표의 정보를 수정합니다."
- *     tags: [Plans]
- *     parameters:
- *       - in: path
- *         name: fid
- *         required: true
- *         description: "폴더 ID"
- *         schema:
- *           type: integer
- *           example: 1
- *       - in: path
- *         name: pid
- *         required: true
- *         description: "계획표 ID"
- *         schema:
- *           type: integer
- *           example: 1
- *     requestBody:
- *       description: "수정할 계획표 내용"
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *                 description: "계획표 제목"
- *                 example: "2025년도 계획"
- *     responses:
- *       "200":
- *         description: "계획표 수정 성공"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "계획표 수정 완료"
- *       "404":
- *         description: "계획표를 찾을 수 없을 경우"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "해당 계획표를 찾을 수 없습니다."
- *       "500":
- *         description: "서버 오류"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "서버 오류"
- */
-
-// 잘 됨
 // 계획표 수정 API
 router.put("/:fid/plans/:pid", verifyToken, async (req, res) => {
   const fid = req.params.fid;
@@ -800,81 +526,7 @@ router.put("/:fid/plans/:pid/feedback", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/folders/{fid}/plans/{pid}/projects:
- *   get:
- *     summary: "계획표 프로젝트 및 유저 정보 조회"
- *     description: "계획표에 속한 프로젝트와 해당 계획표의 유저 정보를 조회합니다."
- *     tags: [Projects, Users]
- *     parameters:
- *       - in: path
- *         name: fid
- *         required: true
- *         description: "폴더 ID"
- *         schema:
- *           type: integer
- *           example: 1
- *       - in: path
- *         name: pid
- *         required: true
- *         description: "계획표 ID"
- *         schema:
- *           type: integer
- *           example: 1
- *     responses:
- *       "200":
- *         description: "프로젝트 및 유저 정보 조회 성공"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 projects:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       project_name:
- *                         type: string
- *                         example: "프로젝트 A"
- *                 user_info:
- *                   type: object
- *                   properties:
- *                     name:
- *                       type: string
- *                       example: "홍길동"
- *                     role:
- *                       type: string
- *                       example: "팀장"
- *                     number:
- *                       type: string
- *                       example: "12345678"
- *       "404":
- *         description: "프로젝트 또는 유저 정보를 찾을 수 없을 경우"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "해당 계획표에 속한 프로젝트가 없습니다."
- *       "500":
- *         description: "서버 오류"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "서버 오류"
- */
-
+// 지난 주 범위 계산 함수
 function getLastWeekRange() {
   const today = new Date();
 
@@ -996,62 +648,6 @@ router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/folders/{fid}/plans/{pid}:
- *   delete:
- *     summary: "계획표 삭제"
- *     description: "특정 계획표를 삭제합니다."
- *     tags: [Plans]
- *     parameters:
- *       - in: path
- *         name: fid
- *         required: true
- *         description: "폴더 ID"
- *         schema:
- *           type: integer
- *           example: 1
- *       - in: path
- *         name: pid
- *         required: true
- *         description: "계획표 ID"
- *         schema:
- *           type: integer
- *           example: 1
- *     responses:
- *       "200":
- *         description: "계획표 삭제 성공"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "계획표 삭제 완료"
- *       "404":
- *         description: "계획표를 찾을 수 없을 경우"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "해당 계획표를 찾을 수 없습니다."
- *       "500":
- *         description: "서버 오류"
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "서버 오류 발생"
- */
-
-// 잘 됨
 // 계획표 삭제 API
 router.delete("/:fid/plans/:pid", verifyToken, async (req, res) => {
   try {
