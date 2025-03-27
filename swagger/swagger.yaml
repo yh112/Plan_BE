@@ -123,6 +123,69 @@ paths:
         "500":
           description: "서버 오류"
 
+  /auth/update:
+    patch:
+      summary: "유저 정보 수정"
+      description: "현재 로그인한 사용자의 정보를 수정합니다."
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_name:
+                  type: string
+                  example: "김유진"
+                number:
+                  type: string
+                  example: "01012345678"
+                role:
+                  type: string
+                  example: "사원"
+      responses:
+        "200":
+          description: "수정 성공"
+        "400":
+          description: "잘못된 요청 또는 수정할 정보 없음"
+        "404":
+          description: "사용자 없음"
+        "500":
+          description: "서버 오류"
+
+
+  /auth/password:
+    patch:
+      summary: "비밀번호 변경"
+      description: "현재 로그인한 사용자가 비밀번호를 변경합니다."
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currentPassword:
+                  type: string
+                  example: "123456"
+                newPassword:
+                  type: string
+                  example: "newpassword123"
+      responses:
+        "200":
+          description: "비밀번호 변경 성공"
+        "400":
+          description: "입력 누락 또는 형식 오류"
+        "401":
+          description: "현재 비밀번호가 일치하지 않음"
+        "404":
+          description: "사용자 없음"
+        "500":
+          description: "서버 오류"
+
+
   /folders:
     get:
       summary: "폴더 목록 조회"
@@ -353,6 +416,71 @@ paths:
           description: "Feedback 수정 완료"
         "500":
           description: "서버 오류"
+
+  /search:
+    get:
+      summary: "키워드로 사용자 데이터 검색"
+      description: |
+        현재 사용자가 소유한 폴더, 계획표, 프로젝트를 키워드로 검색합니다.
+        프로젝트는 project_name, last_week, this_week 필드도 검색에 포함됩니다.
+      tags: [Search]
+      parameters:
+        - in: query
+          name: keyword
+          schema:
+            type: string
+          required: true
+          description: "검색어"
+      responses:
+        "200":
+          description: "검색 결과 반환 성공"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  folders:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        folder_name:
+                          type: string
+                  plans:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        title:
+                          type: string
+                        fid:
+                          type: integer
+                  projects:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        project_name:
+                          type: string
+                        last_week:
+                          type: string
+                        this_week:
+                          type: string
+                        pid:
+                          type: integer
+                        fid:
+                          type: integer
+        "400":
+          description: "검색어 누락"
+        "500":
+          description: "서버 오류"
+
 
   /history/undo:
     post:

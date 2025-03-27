@@ -6,15 +6,21 @@ const bcrypt = require("bcryptjs");
 const TokenUtils = require("../utils/tokenUtils");
 const { verifyToken } = require("../middleware/middleware");
 const jwt = require("jsonwebtoken");
+const { hash } = require("crypto");
 
-// Signup API
+// 회원가입 API
 router.post("/signup", verifyToken, async (req, res) => {
   try {
     const { user_id, password, user_name, number, role } = req.body;
 
     console.log("회원가입 요청");
 
-    if (typeof user_id !== "string" || typeof password !== "string" || typeof user_name !== "string" || typeof number !== "string" || typeof role !== "string"
+    if (
+      typeof user_id !== "string" ||
+      typeof password !== "string" ||
+      typeof user_name !== "string" ||
+      typeof number !== "string" ||
+      typeof role !== "string"
     ) {
       return res.status(400).json({ message: "잘못된 입력 형식입니다." });
     }
@@ -32,23 +38,35 @@ router.post("/signup", verifyToken, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // DB에 저장
-    const [id] = await db.query("INSERT INTO user (user_id, password, name, number, role, admin) VALUES (?, ?, ?, ?, ?, ?)", [
-      user_id,
-      hashedPassword,
-      user_name,
-      number,
-      role,
-      role === "사원" ? 'N' : 'Y',
-    ]);
+    const [id] = await db.query(
+      "INSERT INTO user (user_id, password, name, number, role, admin) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        user_id,
+        hashedPassword,
+        user_name,
+        number,
+        role,
+        role === "사원" ? "N" : "Y",
+      ]
+    );
 
     // 히스토리 테이블에 저장
-    await db.query("INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)", [
-      user_id,
-      id.insertId,
-      'INSERT',
-      null,
-      JSON.stringify({ user_id, password: hashedPassword, user_name, number, role }),
-    ]);
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      [
+        user_id,
+        id.insertId,
+        "INSERT",
+        null,
+        JSON.stringify({
+          user_id,
+          password: hashedPassword,
+          user_name,
+          number,
+          role,
+        }),
+      ]
+    );
 
     res.status(201).json({ message: "회원가입 완료" });
   } catch (error) {
@@ -57,7 +75,7 @@ router.post("/signup", verifyToken, async (req, res) => {
   }
 });
 
-// Login API
+// 로그인 API
 router.post("/login", async (req, res) => {
   try {
     const { user_id, password } = req.body;
@@ -107,11 +125,11 @@ router.get("/", verifyToken, (req, res) => {
     console.log("로그인 여부 확인 요청");
     // const token = req.headers.authorization?.split(" ")[1]; // Bearer <token>에서 토큰만 추출
     const header = req.get("Authorization");
-    
+
     if (!header) {
       return res.status(401).json({ message: "로그인되지 않았습니다." });
     }
-    
+
     const token = header.split(" ")[1];
     const { ok, message, id } = verifyAccessToken(token); // 토큰 유효성 검사
     if (!ok) {
@@ -144,7 +162,7 @@ router.post("/refresh", (req, res) => {
   });
 });
 
-// Logout API
+// 로그아웃 API
 router.post("/logout", (req, res) => {
   console.log("로그아웃 요청");
   try {
@@ -171,7 +189,9 @@ router.delete("/", verifyToken, async (req, res) => {
     }
 
     // 이름으로 유저 조회
-    const [user] = await db.query("SELECT * FROM user WHERE name = ?", [user_name]);
+    const [user] = await db.query("SELECT * FROM user WHERE name = ?", [
+      user_name,
+    ]);
 
     // 유저가 없으면 404 에러 반환
     if (user.length === 0) {
@@ -185,19 +205,154 @@ router.delete("/", verifyToken, async (req, res) => {
 
     // 히스토리 테이블에 저장
     const { id, user_id, password, name, number, role, admin } = user[0];
-    await db.query("INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)", [
-      "user",
-      id,
-      'delete',
-      JSON.stringify({ user_id, password, name, number, role, admin }),
-      null,
-    ]);
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      [
+        "user",
+        id,
+        "delete",
+        JSON.stringify({ user_id, password, name, number, role, admin }),
+        null,
+      ]
+    );
 
     // 삭제 성공 메시지 반환
     res.status(200).json({ message: "유저가 성공적으로 삭제되었습니다." });
   } catch (error) {
     console.error("유저 삭제 오류:", error);
     res.status(500).json({ message: "서버 오류 발생" });
+  }
+});
+
+// 사용자 정보 수정 API
+router.patch("/update", verifyToken, async (req, res) => {
+  const id = req.userId;
+  const { user_name, number, role } = req.body;
+
+  try {
+    // 유저 존재 여부 확인
+    const [user] = await db.query("SELECT * FROM user WHERE id = ?", [id]);
+    if (user.length === 0) {
+      return res.status(404).json({ message: "사용자를 찾을 수 없습니다." });
+    }
+
+    const updates = [];
+    const values = [];
+
+    if (user_name) {
+      updates.push("name = ?");
+      values.push(user_name);
+    }
+    if (number) {
+      updates.push("number = ?");
+      values.push(number);
+    }
+    if (role) {
+      updates.push("role = ?", "admin = ?");
+      values.push(role, role === "사원" ? "N" : "Y");
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: "수정할 정보가 없습니다." });
+    }
+
+    values.push(id); // WHERE id = ?
+    const query = `UPDATE user SET ${updates.join(", ")} WHERE id = ?`;
+    await db.query(query, values);
+
+    // history_copy에 저장
+    const [updatedUser] = await db.query("SELECT * FROM user WHERE id = ?", [
+      id,
+    ]);
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      [
+        "user",
+        id,
+        "UPDATE",
+        JSON.stringify({
+          id: user[0].user_id,
+          password: user[0].password,
+          name: user[0].name,
+          number: user[0].number,
+          role: user[0].role,
+          admin: user[0].admin,
+        }),
+        JSON.stringify({
+          id: updatedUser[0].user_id,
+          password: updatedUser[0].password,
+          name: updatedUser[0].name,
+          number: updatedUser[0].number,
+          role: updatedUser[0].role,
+          admin: updatedUser[0].admin,
+        }),
+      ]
+    );
+
+    res.status(200).json({ message: "사용자 정보가 수정되었습니다." });
+  } catch (error) {
+    console.error("유저 정보 수정 오류:", error);
+    res.status(500).json({ message: "서버 오류" });
+  }
+});
+
+// 비밀번호 변경 API
+router.patch("/password", verifyToken, async (req, res) => {
+  const id = req.userId;
+  const { currentPassword, newPassword } = req.body;
+
+  try {
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "필수 항목이 누락되었습니다." });
+    }
+
+    // 유저 정보 가져오기
+    const [user] = await db.query("SELECT * FROM user WHERE id = ?", [id]);
+    if (user.length === 0) {
+      return res.status(404).json({ message: "사용자를 찾을 수 없습니다." });
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user[0].password);
+    if (!valid) {
+      return res
+        .status(401)
+        .json({ message: "현재 비밀번호가 일치하지 않습니다." });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 12);
+
+    await db.query("UPDATE user SET password = ? WHERE id = ?", [hashed, id]);
+
+    // history_copy에 저장
+    await db.query(
+      "INSERT INTO history_copy (table_name, row_id, action, old_data, new_data) VALUES (?, ?, ?, ?, ?)",
+      [
+        "user",
+        id,
+        "UPDATE",
+        JSON.stringify({
+          id: user[0].user_id,
+          password: user[0].password,
+          name: user[0].name,
+          number: user[0].number,
+          role: user[0].role,
+          admin: user[0].admin,
+        }),
+        JSON.stringify({
+          id: user[0].user_id,
+          password: hashed,
+          name: user[0].name,
+          number: user[0].number,
+          role: user[0].role,
+          admin: user[0].admin,
+        }),
+      ]
+    );
+
+    res.status(200).json({ message: "비밀번호가 성공적으로 변경되었습니다." });
+  } catch (error) {
+    console.error("비밀번호 변경 오류:", error);
+    res.status(500).json({ message: "서버 오류" });
   }
 });
 
