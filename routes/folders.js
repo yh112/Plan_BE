@@ -596,9 +596,8 @@ router.get("/:fid/plans/:pid/projects", verifyToken, async (req, res) => {
             project_name: project.project_name || "",
             this_week: "",
             // 나머지 값은 빈값으로 처리
-            last_week: project.last_week || "",
+            last_week: project.this_week || "",
             feedback: "",
-            // 여기에 필요한 추가 필드들을 빈값으로 처리
           };
         }
       });
